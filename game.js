@@ -137,8 +137,13 @@
     player.balance -= amount;
     const correct = Number(answerIndex) === question.correctIndex;
     if (correct) session.round.bets.push({ playerId: player.id, symbol: selection.symbol, amount });
-    advanceTurn(session);
+    session.round.question = null;
     return { correct, question };
+  }
+
+  function endTurn(session) {
+    if (!currentPlayer(session)) return false;
+    return advanceTurn(session);
   }
 
   function beginReveal(session) {
@@ -174,7 +179,7 @@
     const dom = {
       setup: $('setup-screen'), game: $('game-screen'), playerList: $('player-list'), addPlayer: $('add-player'), start: $('start-game'), setupError: $('setup-error'), music: $('game-music'),
       round: $('round-number'), turn: $('turn-label'), balance: $('current-balance'), queue: $('queue'),
-      grid: $('symbol-grid'), amount: $('bet-amount'), betForm: $('bet-form'), betError: $('bet-error'), preview: $('preview-button'), reveal: $('reveal-button'), statuses: $('player-statuses'), status: $('status'), newRound: $('new-round'),
+      grid: $('symbol-grid'), amount: $('bet-amount'), betForm: $('bet-form'), betError: $('bet-error'), preview: $('preview-button'), endTurn: $('end-turn'), reveal: $('reveal-button'), statuses: $('player-statuses'), status: $('status'), newRound: $('new-round'),
       questionDialog: $('question-dialog'), questionText: $('question-text'), answers: $('answer-options'), previewDialog: $('preview-dialog'), previewResult: $('preview-result-dice'), previewClose: $('preview-close'), resultDialog: $('result-dialog'), resultDice: $('result-dice'), settlement: $('settlement'), resultNext: $('result-next-round'), stage: $('round-stage'), stageDice: $('stage-dice'), stageCopy: $('stage-copy'), stageBowl: $('stage-bowl'), stageContinue: $('stage-continue'),
     };
     let names = ['Người chơi 1', 'Người chơi 2'];
@@ -239,6 +244,7 @@
       dom.amount.disabled = !betting;
       dom.betForm.querySelector('button').disabled = !betting;
       dom.newRound.hidden = round.phase !== 'settled';
+      dom.endTurn.hidden = round.phase !== 'betting';
       dom.reveal.hidden = round.phase !== 'revealing';
       renderBoard();
       dom.statuses.innerHTML = '';
@@ -301,6 +307,7 @@
     dom.betForm.addEventListener('submit', (event) => { event.preventDefault(); openQuestion(); });
     dom.preview.addEventListener('click', () => { if (buyPreview(session)) { selectedSymbol = null; setStatus('Bạn đã trả phí xem trước và được chuyển xuống lượt cuối.'); render(); } });
     dom.previewClose.addEventListener('click', () => { consumePreview(session); dom.previewDialog.close(); setStatus('Đã đóng xem trước. Hãy chọn ô cược của bạn.'); render(); });
+    dom.endTurn.addEventListener('click', () => { endTurn(session); selectedSymbol = null; setStatus('Đã kết thúc lượt.'); render(); });
     dom.reveal.addEventListener('click', reveal);
     dom.stageContinue.addEventListener('click', () => { const settlement = settleRound(session); dom.stage.hidden = true; dom.resultDice.innerHTML = session.round.dice.map((id) => `<div class="result-die">${dieSvg(id)}<small>${symbolById(id).label}</small></div>`).join(''); const lines = session.players.map((player) => `${player.name}: nhận ${money(settlement.payouts[player.id])} · còn ${money(player.balance)}`); dom.settlement.innerHTML = lines.join('<br>'); render(); dom.resultDialog.showModal(); });
     dom.newRound.addEventListener('click', beginRound);
@@ -309,7 +316,7 @@
     renderSetup();
   }
 
-  const api = { CONFIG, createSession, startRound, rollDice, openBetting, currentPlayer, getCurrentQuestion, advanceTurn, buyPreview, consumePreview, submitBet, beginReveal, settleRound, symbolSvg, dieSvg, initGame };
+  const api = { CONFIG, createSession, startRound, rollDice, openBetting, currentPlayer, getCurrentQuestion, advanceTurn, endTurn, buyPreview, consumePreview, submitBet, beginReveal, settleRound, symbolSvg, dieSvg, initGame };
   global.BauCuaGame = api;
   if (typeof module !== 'undefined') module.exports = api;
   if (global.document) global.document.addEventListener('DOMContentLoaded', initGame);

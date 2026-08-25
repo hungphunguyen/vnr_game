@@ -58,6 +58,7 @@ run(
       { symbol: "bau", amount: 5 },
       question.correctIndex === 0 ? 1 : 0,
     ); // Bình is now current player.
+    game.endTurn(session);
     game.rollDice(session);
     assert.deepEqual(session.round.dice, ["cua", "tom", "bau"]);
     assert.equal(game.buyPreview(session), true);
@@ -99,6 +100,7 @@ run("pays one bet per matching die after a correct answer", () => {
     question.correctIndex,
   );
   assert.equal(result.correct, true);
+  game.endTurn(session);
   assert.equal(session.players[0].balance, 20);
   assert.throws(() => game.settleRound(session), /Chưa thể/);
   game.beginReveal(session);
