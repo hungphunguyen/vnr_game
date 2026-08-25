@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#8d211b" />
+    <title>Bầu Cua — Hội làng</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Coiny&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="animations.css" />
+    <link rel="stylesheet" href="asset-stage.css" />
+    <script src="game.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section
+        id="setup-screen"
+        class="setup-panel panel"
+        aria-labelledby="setup-title"
+      >
+        <p class="eyebrow">Hội làng mở hội</p>
+        <h1 id="setup-title">Bầu Cua<br /><span>Tôm Cá</span></h1>
+        <p class="intro">Mời mọi người vào bàn, gọi đúng tên và thử vận may.</p>
+        <div id="player-list" class="player-list" aria-live="polite"></div>
+        <button id="add-player" class="button button-ghost" type="button">
+          ＋ Thêm người chơi
+        </button>
+        <p id="setup-error" class="form-note error" role="alert"></p>
+        <button
+          id="start-game"
+          class="button button-primary button-wide"
+          type="button"
+        >
+          Vào bàn chơi <span>→</span>
+        </button>
+      </section>
+      <section id="game-screen" hidden aria-labelledby="game-title">
+        <header class="game-header">
+          <div>
+            <p class="eyebrow">Bầu cua hội làng</p>
+            <h2 id="game-title">Vòng <span id="round-number">1</span></h2>
+          </div>
+          <button
+            id="new-round"
+            class="button button-ghost"
+            type="button"
+            hidden
+          >
+            Vòng mới
+          </button>
+        </header>
+        <section class="turn-card panel" aria-label="Lượt cược hiện tại">
+          <div>
+            <p class="turn-kicker">Đến lượt</p>
+            <h3 id="turn-label">—</h3>
+          </div>
+          <div class="balance-wrap">
+            <span>Số dư</span><strong id="current-balance">0đ</strong>
+          </div>
+          <p id="queue" class="queue"></p>
+        </section>
+        <section class="board panel" aria-label="Bàn cược bầu cua">
+          <div class="board-heading">
+            <span>Chọn một ô cược</span><small>Cược tối thiểu 5 ⭐</small>
+          </div>
+          <div id="symbol-grid" class="symbol-grid"></div>
+        </section>
+        <section class="bet-panel panel">
+          <form id="bet-form">
+            <label for="bet-amount">Mức cược</label>
+            <div class="amount-row">
+              <input
+                id="bet-amount"
+                type="number"
+                inputmode="numeric"
+                min="5"
+                step="1"
+                value="5"
+              /><span>⭐</span>
+            </div>
+            <p id="bet-error" class="form-note error" role="alert"></p>
+            <button id="place-bet" class="button button-primary" type="submit">
+              Trả lời để đặt cược
+            </button>
+          </form>
+          <div class="or-divider"><span>hoặc</span></div>
+          <button id="preview-button" class="preview-button" type="button">
+            <span class="preview-icon">🔮</span
+            ><span
+              ><strong>Xem trước kết quả</strong
+              ><small>Trả 15 ⭐ · chuyển xuống cuối lượt</small></span
+            >
+          </button>
+        </section>
+        <button
+          id="reveal-button"
+          class="button button-primary button-wide"
+          type="button"
+          hidden
+        >
+          Hiện kết quả vòng chơi
+        </button>
+        <section class="players-panel panel" aria-labelledby="players-title">
+          <h3 id="players-title">Sổ tiền người chơi</h3>
+          <div id="player-statuses" class="player-statuses"></div>
+        </section>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+    <iframe
+      id="game-music"
+      title="Nhạc nền trò chơi"
+      width="1"
+      height="1"
+      hidden
+      allow="autoplay; encrypted-media"
+      referrerpolicy="strict-origin-when-cross-origin"
+    ></iframe>
+    <dialog
+      id="question-dialog"
+      class="game-dialog"
+      aria-labelledby="question-title"
+    >
+      <div class="dialog-mark">?</div>
+      <p class="eyebrow">Muốn chốt cược, hãy trả lời đúng</p>
+      <h2 id="question-title">Câu hỏi</h2>
+      <p id="question-text" class="question-text"></p>
+      <div id="answer-options" class="answer-options"></div>
+    </dialog>
+    <dialog
+      id="preview-dialog"
+      class="game-dialog preview-dialog"
+      aria-labelledby="preview-title"
+    >
+      <p class="eyebrow">Bí mật của bạn</p>
+      <h2 id="preview-title">Kết quả đã định</h2>
+      <div id="preview-result-dice" class="result-dice"></div>
+      <p class="settlement">Hãy ghi nhớ rồi đóng bảng để đặt cược.</p>
+      <button
+        id="preview-close"
+        class="button button-primary button-wide"
+        type="button"
+      >
+        Đã nhớ, tiếp tục đặt cược
+      </button>
+    </dialog>
+    <dialog
+      id="result-dialog"
+      class="game-dialog result-dialog"
+      aria-labelledby="result-title"
+    >
+      <p class="eyebrow">Kết quả vòng chơi</p>
+      <h2 id="result-title">Mở bát!</h2>
+      <div id="result-dice" class="result-dice"></div>
+      <div id="settlement" class="settlement"></div>
+      <button
+        id="result-next-round"
+        class="button button-primary button-wide"
+        type="button"
+      >
+        Sang vòng tiếp theo →
+      </button>
+    </dialog>
+    <section id="round-stage" class="round-stage" hidden aria-live="assertive">
+      <p id="stage-copy">Lắc bát mở hội</p>
+      <div class="stage-scene">
+        <div class="stage-plate" aria-hidden="true"></div>
+        <div id="stage-dice" class="stage-dice"></div>
+        <div
+          id="stage-bowl"
+          class="stage-bowl"
+          aria-label="Kéo bát lên để mở kết quả"
+          role="button"
+          tabindex="0"
+        ></div>
+      </div>
+      <button
+        id="stage-continue"
+        class="button button-primary"
+        type="button"
+        hidden
+      >
+        Tiếp tục và thanh toán
+      </button>
+    </section>
+  </body>
+</html>
