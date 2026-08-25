@@ -119,3 +119,25 @@ run("keeps the game screen hidden during player setup", () => {
   const css = fs.readFileSync("animations.css", "utf8");
   assert.match(css, /#game-screen\[hidden\]\s*\{\s*display\s*:\s*none\s*!important/);
 });
+
+run("provides 100 questions limited to the corruption causes and impacts lesson", () => {
+  assert.equal(game.CONFIG.questions.length, 100);
+  assert.ok(game.CONFIG.questions.every((question) => question.id.startsWith("pctn-")));
+  assert.ok(game.CONFIG.questions.every((question) => question.answers.length === 4));
+  assert.ok(game.CONFIG.questions.every((question) => Number.isInteger(question.correctIndex)));
+  assert.deepEqual(
+    [0, 1, 2, 3].map((index) => game.CONFIG.questions.filter((question) => question.correctIndex === index).length),
+    [25, 25, 25, 25],
+  );
+  assert.notDeepEqual(
+    game.CONFIG.questions.slice(0, 8).map((question) => question.correctIndex),
+    [1, 2, 3, 0, 1, 2, 3, 0],
+  );
+  assert.ok(game.CONFIG.questions.every((question) => {
+    const correct = question.answers[question.correctIndex];
+    return question.answers
+      .filter((_, index) => index !== question.correctIndex)
+      .every((answer) => answer.length >= correct.length);
+  }));
+  assert.ok(game.CONFIG.questions.flatMap((question) => question.answers).every((answer) => !/thời tiết|khí hậu|thể thao|lễ hội|địa hình/i.test(answer)));
+});

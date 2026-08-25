@@ -448,6 +448,7 @@ h1 span {
   gap: 9px;
 }
 .answer-option {
+  min-height: 64px;
   padding: 13px 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
