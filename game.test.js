@@ -109,6 +109,34 @@ run("pays one bet per matching die after a correct answer", () => {
   assert.equal(session.players[0].balance, 35);
 });
 
+run("records response time only for correct quiz answers", () => {
+  const session = game.createSession(["An"]);
+  game.startRound(session, scriptedRandom([0, 0, 0, 0]));
+  game.rollDice(session);
+  game.openBetting(session);
+  let question = game.getCurrentQuestion(session);
+  game.submitBet(session, { symbol: "bau", amount: 5 }, question.correctIndex, 4200);
+  assert.equal(session.players[0].correctAnswerTimeMs, 4200);
+  const wrongSession = game.createSession(["Bình"]);
+  game.startRound(wrongSession, scriptedRandom([0, 0, 0, 0]));
+  game.rollDice(wrongSession);
+  game.openBetting(wrongSession);
+  question = game.getCurrentQuestion(wrongSession);
+  game.submitBet(wrongSession, { symbol: "bau", amount: 5 }, question.correctIndex === 0 ? 1 : 0, 1800);
+  assert.equal(wrongSession.players[0].correctAnswerTimeMs, 0);
+});
+
+run("ranks equal correct totals by the fastest accumulated response time", () => {
+  const session = game.createSession(["Chậm", "Nhanh", "Ít câu"]);
+  session.players[0].correctAnswers = 5;
+  session.players[0].correctAnswerTimeMs = 8500;
+  session.players[1].correctAnswers = 5;
+  session.players[1].correctAnswerTimeMs = 4200;
+  session.players[2].correctAnswers = 4;
+  session.players[2].correctAnswerTimeMs = 100;
+  assert.deepEqual(game.knowledgeRanking(session).map((player) => player.name), ["Nhanh", "Chậm", "Ít câu"]);
+});
+
 run("renders generated image assets and exposes no skip action", () => {
   assert.match(game.symbolSvg("cua"), /assets\/generated\/cua-v2\.png/);
   assert.match(game.dieSvg("bau"), /game-die/);
@@ -118,6 +146,44 @@ run("renders generated image assets and exposes no skip action", () => {
 run("keeps the game screen hidden during player setup", () => {
   const css = fs.readFileSync("animations.css", "utf8");
   assert.match(css, /#game-screen\[hidden\]\s*\{\s*display\s*:\s*none\s*!important/);
+});
+
+run("uses one clickable urn scene and no draggable fortune sticks", () => {
+  const html = fs.readFileSync("index.html", "utf8");
+  const source = fs.readFileSync("game.js", "utf8");
+  assert.match(html, /id="draw-urn-button"/);
+  assert.match(html, /fortune-urn-five-sticks\.png/);
+  assert.match(html, /id="draw-reveal"/);
+  assert.match(source, /dom\.drawUrn\.addEventListener\('click'/);
+  assert.doesNotMatch(source, /querySelectorAll\('\.draw-stick'\)/);
+});
+
+run("styles the draw as a large single-scene promotion", () => {
+  const css = fs.readFileSync("styles.css", "utf8");
+  const html = fs.readFileSync("index.html", "utf8");
+  assert.match(css, /#draw-dialog[^}]*max-width: 960px/);
+  assert.match(css, /@keyframes fortune-urn-shake/);
+  assert.match(css, /@keyframes fortune-urn-fade-out/);
+  assert.match(css, /@keyframes fortune-stick-materialize/);
+  assert.match(css, /\.draw-reveal \{[^}]*position: absolute/);
+  assert.match(css, /animation: fortune-stick-materialize 1\.1s/);
+  assert.doesNotMatch(css, /fortune-stick-materialize \{[^}]*translateY/);
+  assert.match(css, /\.draw-scene\.is-revealed \.draw-urn-button[^}]*display: none/);
+  assert.match(css, /#draw-reveal\[hidden\] \{ display: none; \}/);
+  assert.match(html, /assets\/generated\/fortune-result-stick-engraved\.png/);
+  assert.match(html, /assets\/generated\/draw-bait-x2-bubble\.png/);
+  assert.match(html, /assets\/generated\/draw-bait-x5-bubble\.png/);
+  assert.match(html, /assets\/generated\/draw-bait-x10-bubble\.png/);
+  assert.doesNotMatch(html, /fortune-stick-long\.png/);
+});
+
+run("provides a 20-second countdown in the quiz dialog", () => {
+  const css = fs.readFileSync("styles.css", "utf8");
+  const html = fs.readFileSync("index.html", "utf8");
+  assert.match(html, /id="question-timer"/);
+  assert.match(html, /20 giây/);
+  assert.match(css, /\.question-timer/);
+  assert.match(css, /\.question-timer\.is-urgent/);
 });
 
 run("provides 100 questions limited to the corruption causes and impacts lesson", () => {
@@ -133,11 +199,11 @@ run("provides 100 questions limited to the corruption causes and impacts lesson"
     game.CONFIG.questions.slice(0, 8).map((question) => question.correctIndex),
     [1, 2, 3, 0, 1, 2, 3, 0],
   );
-  assert.ok(game.CONFIG.questions.every((question) => {
+  const correctIsUniqueShortest = game.CONFIG.questions.filter((question) => {
     const correct = question.answers[question.correctIndex];
-    return question.answers
-      .filter((_, index) => index !== question.correctIndex)
-      .every((answer) => answer.length >= correct.length);
-  }));
+    const answerLengths = question.answers.map((answer) => answer.length);
+    return correct.length === Math.min(...answerLengths) && answerLengths.filter((length) => length === correct.length).length === 1;
+  });
+  assert.ok(correctIsUniqueShortest.length < 30, 'Đáp án đúng không được thường xuyên là đáp án ngắn nhất một mình.');
   assert.ok(game.CONFIG.questions.flatMap((question) => question.answers).every((answer) => !/thời tiết|khí hậu|thể thao|lễ hội|địa hình/i.test(answer)));
 });

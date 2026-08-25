@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 520" role="img" aria-labelledby="title desc">
+  <title id="title">Cây thăm mất toàn bộ điểm</title>
+  <desc id="desc">Cây thăm đỏ vàng có dòng chữ Mất toàn bộ điểm khắc dọc thân.</desc>
+  <defs>
+    <linearGradient id="red" x1="0" x2="1"><stop stop-color="#7b120b"/><stop offset=".48" stop-color="#d83918"/><stop offset="1" stop-color="#79120d"/></linearGradient>
+    <linearGradient id="gold" x1="0" x2="1"><stop stop-color="#a75c0a"/><stop offset=".42" stop-color="#ffe27a"/><stop offset="1" stop-color="#b56a0a"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="5" flood-color="#4c1008" flood-opacity=".55"/></filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <path d="M80 12 122 62v390l-42 55-42-55V62z" fill="url(#red)" stroke="url(#gold)" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M80 26 105 66H55z" fill="#ffdf67" stroke="#a75c0a" stroke-width="4"/>
+    <path d="M54 82h52M49 111h62M49 400h62M54 428h52" stroke="url(#gold)" stroke-width="9"/>
+    <path d="M55 141h50v225H55z" fill="#99190f" stroke="#efbf45" stroke-width="4" rx="14"/>
+    <path d="M68 155c14 14 10 38 0 54 16 18 15 42 0 58 16 18 15 42 0 58 14 17 14 35 0 48" fill="none" stroke="#efbf45" stroke-width="4" opacity=".9"/>
+    <text x="80" y="285" transform="rotate(-90 80 285)" fill="#fff1a5" font-family="Arial, sans-serif" font-size="14" font-weight="800" letter-spacing="1.4" text-anchor="middle">MẤT TOÀN BỘ ĐIỂM</text>
+    <circle cx="80" cy="464" r="15" fill="#f6c34f" stroke="#9b560a" stroke-width="4"/>
+  </g>
+</svg>

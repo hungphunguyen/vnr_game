@@ -127,16 +127,31 @@
     'Khó huy động người dân tố cáo',
   ];
 
+  const ANSWER_CONTEXTS = [
+    'đây là một nội dung cần được lưu ý',
+    'đây là một khía cạnh cần nhận diện trong thực tiễn',
+    'đây là vấn đề cần được quan tâm trong quá trình thực thi công vụ',
+    'đây là nội dung cần được xem xét cẩn trọng trong công tác phòng, chống tham nhũng',
+    'đây là một vấn đề cần được nhận diện, đánh giá và chủ động phòng ngừa trong thực tế',
+  ];
+  const ANSWER_ENDINGS = ['', ' trong thực tế', ' một cách phù hợp', ' ở từng tình huống'];
+
   const chooseDistractors = (correct, index) => {
     const choices = [];
     for (let offset = 1; choices.length < 3; offset += 1) {
       const candidate = RELATED_DISTRACTORS[(index * 3 + offset) % RELATED_DISTRACTORS.length];
       if (candidate !== correct && !choices.includes(candidate)) choices.push(candidate);
     }
-    return choices.map((choice) => {
-      if (choice.length >= correct.length) return choice;
-      return `${choice} trong quản lý và thực thi công vụ`;
-    });
+    return choices;
+  };
+
+  const addAnswerContext = (choice, targetLength, questionIndex, answerIndex) => {
+    const requiredContextLength = targetLength - choice.length;
+    const context = ANSWER_CONTEXTS.reduce((closest, candidate) => (
+      Math.abs(candidate.length - requiredContextLength) < Math.abs(closest.length - requiredContextLength) ? candidate : closest
+    ));
+    const ending = ANSWER_ENDINGS[(questionIndex * 7 + answerIndex * 5) % ANSWER_ENDINGS.length];
+    return `${choice} — ${context}${ending}.`;
   };
 
   // Fixed shuffled slots keep the correct choice evenly distributed without a pattern players can memorize.
@@ -152,10 +167,11 @@
     const correctIndex = ANSWER_SLOTS[index];
     const answers = chooseDistractors(correct, index);
     answers.splice(correctIndex, 0, correct);
+    const targetAnswerLength = Math.max(...answers.map((answer) => answer.length)) + 55;
     return {
       id: `pctn-${index + 1}`,
       text,
-      answers,
+      answers: answers.map((answer, answerIndex) => addAnswerContext(answer, targetAnswerLength, index, answerIndex)),
       correctIndex,
     };
   });
@@ -180,7 +196,7 @@
     if (cleanNames.length < 1) throw new Error('Cần có ít nhất một người chơi.');
     if (cleanNames.length > CONFIG.questions.length) throw new Error('Số người chơi vượt quá số câu hỏi.');
     return {
-      players: cleanNames.map((name, id) => ({ id, name, balance: CONFIG.startingBalance })),
+      players: cleanNames.map((name, id) => ({ id, name, balance: CONFIG.startingBalance, correctAnswers: 0, correctAnswerTimeMs: 0, drawUsed: false })),
       round: null,
       nextRoundNumber: 1,
     };
@@ -268,13 +284,17 @@
     return { player, amount };
   }
 
-  function submitBet(session, selection, answerIndex) {
+  function submitBet(session, selection, answerIndex, responseTimeMs = 0) {
     const { player, amount } = validateSelection(session, selection);
     const question = getCurrentQuestion(session);
     session.round.usedQuestionIds.push(question.id);
     player.balance -= amount;
     const correct = Number(answerIndex) === question.correctIndex;
-    if (correct) session.round.bets.push({ playerId: player.id, symbol: selection.symbol, amount });
+    if (correct) {
+      player.correctAnswers += 1;
+      player.correctAnswerTimeMs += Math.min(20000, Math.max(0, Number(responseTimeMs) || 0));
+      session.round.bets.push({ playerId: player.id, symbol: selection.symbol, amount });
+    }
     session.round.question = null;
     return { correct, question };
   }
@@ -301,6 +321,14 @@
     return { counts, payouts };
   }
 
+  function pointRanking(session) { return [...session.players].sort((a, b) => b.balance - a.balance || a.id - b.id); }
+  function knowledgeRanking(session) { return [...session.players].sort((a, b) => b.correctAnswers - a.correctAnswers || a.correctAnswerTimeMs - b.correctAnswerTimeMs || a.id - b.id); }
+  function drawPenalty(session, playerId) {
+    const player = session.players.find((item) => item.id === Number(playerId));
+    if (!player || player.drawUsed) return null;
+    const lost = player.balance; player.balance = 0; player.drawUsed = true; return lost;
+  }
+
   function symbolSvg(id, className = '') {
     return `<img class="folk-image ${className}" src="assets/generated/${id}-v2.png" alt="" aria-hidden="true">`;
   }
@@ -318,15 +346,49 @@
       setup: $('setup-screen'), game: $('game-screen'), playerList: $('player-list'), addPlayer: $('add-player'), start: $('start-game'), setupError: $('setup-error'), music: $('game-music'),
       round: $('round-number'), turn: $('turn-label'), balance: $('current-balance'), queue: $('queue'),
       grid: $('symbol-grid'), amount: $('bet-amount'), betForm: $('bet-form'), betError: $('bet-error'), preview: $('preview-button'), endTurn: $('end-turn'), reveal: $('reveal-button'), statuses: $('player-statuses'), status: $('status'), newRound: $('new-round'),
-      questionDialog: $('question-dialog'), questionText: $('question-text'), answers: $('answer-options'), previewDialog: $('preview-dialog'), previewResult: $('preview-result-dice'), previewClose: $('preview-close'), resultDialog: $('result-dialog'), resultDice: $('result-dice'), settlement: $('settlement'), resultNext: $('result-next-round'), stage: $('round-stage'), stageDice: $('stage-dice'), stageCopy: $('stage-copy'), stageBowl: $('stage-bowl'), stageContinue: $('stage-continue'),
+      questionDialog: $('question-dialog'), questionText: $('question-text'), questionTimer: $('question-timer'), answers: $('answer-options'), previewDialog: $('preview-dialog'), previewResult: $('preview-result-dice'), previewClose: $('preview-close'), resultDialog: $('result-dialog'), resultDice: $('result-dice'), settlement: $('settlement'), resultNext: $('result-next-round'), stage: $('round-stage'), stageDice: $('stage-dice'), stageCopy: $('stage-copy'), stageBowl: $('stage-bowl'), stageContinue: $('stage-continue'),
+      endSession: $('end-session'), summaryDialog: $('summary-dialog'), summaryList: $('summary-list'), summaryContinue: $('summary-continue'), drawDialog: $('draw-dialog'), drawScene: $('draw-scene'), drawUrn: $('draw-urn-button'), drawReveal: $('draw-reveal'), drawResult: $('draw-result'), drawConfirm: $('draw-confirm'), legalDialog: $('legal-dialog'), knowledgeShow: $('knowledge-show'), knowledgeDialog: $('knowledge-dialog'), knowledgeList: $('knowledge-list'),
     };
     let names = ['Người chơi 1', 'Người chơi 2'];
     let session = null;
     let selectedSymbol = null;
     let audioContext = null;
+    let questionTimerId = null;
+    let questionStartedAt = 0;
+    let questionDeadlineAt = 0;
+    let questionLocked = false;
+    const questionDurationMs = 20000;
     const money = (value) => `${Number(value).toLocaleString('vi-VN')} ⭐`;
+    const formatQuizTime = (timeMs) => `${(Number(timeMs) / 1000).toFixed(1).replace('.', ',')} giây`;
+    const now = () => global.performance?.now?.() ?? Date.now();
     const symbolById = (id) => CONFIG.symbols.find((symbol) => symbol.id === id);
     const setStatus = (message) => { dom.status.textContent = message; };
+    const showSummary = () => { dom.summaryList.innerHTML = pointRanking(session).map((p, i) => `<p><strong>Hạng ${i + 1}. ${p.name}</strong> — ${money(p.balance)} ${p.drawUsed ? '✓ Đã rút' : `<button class="draw-player" data-id="${p.id}" type="button"><img src="assets/generated/fortune-stick-icon.png" alt=""> Bốc thăm</button>`}</p>`).join(''); dom.summaryList.querySelectorAll('.draw-player').forEach((button) => button.addEventListener('click', () => { dom.drawUrn.dataset.id = button.dataset.id; dom.drawScene.className = 'draw-scene'; dom.drawReveal.hidden = true; dom.drawUrn.disabled = false; dom.drawResult.textContent = 'Chạm vào ống thăm để bắt đầu.'; dom.drawConfirm.hidden = true; dom.drawDialog.showModal(); })); };
+
+    function clearQuestionTimer() {
+      if (questionTimerId !== null) global.clearInterval(questionTimerId);
+      questionTimerId = null;
+      questionStartedAt = 0;
+      questionDeadlineAt = 0;
+      dom.questionTimer.classList.remove('is-urgent');
+    }
+
+    function updateQuestionTimer() {
+      const seconds = Math.max(0, Math.ceil((questionDeadlineAt - now()) / 1000));
+      dom.questionTimer.querySelector('strong').textContent = `${seconds} giây`;
+      dom.questionTimer.classList.toggle('is-urgent', seconds <= 5);
+    }
+
+    function startQuestionTimer() {
+      clearQuestionTimer();
+      questionStartedAt = now();
+      questionDeadlineAt = questionStartedAt + questionDurationMs;
+      updateQuestionTimer();
+      questionTimerId = global.setInterval(() => {
+        if (now() >= questionDeadlineAt) answerQuestion(-1, true);
+        else updateQuestionTimer();
+      }, 200);
+    }
 
     async function playShakeSound() {
       const AudioContext = global.AudioContext || global.webkitAudioContext;
@@ -410,13 +472,19 @@
         option.addEventListener('click', () => answerQuestion(index)); dom.answers.append(option);
       });
       dom.questionDialog.showModal();
+      questionLocked = false;
+      startQuestionTimer();
     }
 
-    function answerQuestion(index) {
-      const result = submitBet(session, { symbol: selectedSymbol, amount: Number(dom.amount.value) }, index);
-      dom.questionText.textContent = result.correct ? 'Chính xác! Cược của bạn đã được ghi nhận.' : `Chưa đúng! Bạn bị trừ ${money(dom.amount.value)} và lượt cược này bị vô hiệu hóa.`;
+    function answerQuestion(index, timedOut = false) {
+      if (questionLocked) return;
+      questionLocked = true;
+      const responseTimeMs = questionStartedAt ? Math.min(questionDurationMs, Math.max(0, now() - questionStartedAt)) : 0;
+      clearQuestionTimer();
+      const result = submitBet(session, { symbol: selectedSymbol, amount: Number(dom.amount.value) }, index, responseTimeMs);
+      dom.questionText.textContent = result.correct ? 'Chính xác! Cược của bạn đã được ghi nhận.' : timedOut ? `Hết giờ! Bạn bị trừ ${money(dom.amount.value)} và lượt cược này bị vô hiệu hóa.` : `Chưa đúng! Bạn bị trừ ${money(dom.amount.value)} và lượt cược này bị vô hiệu hóa.`;
       dom.answers.innerHTML = '';
-      global.setTimeout(() => { dom.questionDialog.close(); selectedSymbol = null; setStatus(result.correct ? 'Đã ghi nhận cược.' : 'Trả lời sai: lượt cược đã bị vô hiệu hóa.'); render(); }, 1100);
+      global.setTimeout(() => { dom.questionDialog.close(); selectedSymbol = null; questionLocked = false; setStatus(result.correct ? 'Đã ghi nhận cược.' : timedOut ? 'Hết giờ: lượt cược đã bị vô hiệu hóa.' : 'Trả lời sai: lượt cược đã bị vô hiệu hóa.'); render(); }, 1100);
     }
 
     function playIntro() {
@@ -450,11 +518,17 @@
     dom.stageContinue.addEventListener('click', () => { const settlement = settleRound(session); dom.stage.hidden = true; dom.resultDice.innerHTML = session.round.dice.map((id) => `<div class="result-die">${dieSvg(id)}<small>${symbolById(id).label}</small></div>`).join(''); const lines = session.players.map((player) => `${player.name}: nhận ${money(settlement.payouts[player.id])} · còn ${money(player.balance)}`); dom.settlement.innerHTML = lines.join('<br>'); render(); dom.resultDialog.showModal(); });
     dom.newRound.addEventListener('click', beginRound);
     dom.resultNext.addEventListener('click', () => { dom.resultDialog.close(); beginRound(); });
+    dom.endSession.addEventListener('click', () => { showSummary(); dom.summaryDialog.showModal(); });
+    const revealDraw = () => { dom.drawScene.classList.remove('is-shaking'); dom.drawScene.classList.add('is-fading'); dom.drawReveal.hidden = false; global.setTimeout(() => { dom.drawScene.classList.add('is-revealed'); const lost = drawPenalty(session, dom.drawUrn.dataset.id); if (lost === null) return; dom.drawResult.textContent = `Cây thăm cảnh báo: bạn mất toàn bộ ${money(lost)} điểm mô phỏng.`; dom.drawConfirm.hidden = false; }, 1100); };
+    dom.drawUrn.addEventListener('click', () => { if (dom.drawUrn.disabled) return; dom.drawUrn.disabled = true; dom.drawScene.classList.add('is-shaking'); global.setTimeout(revealDraw, 1100); });
+    dom.drawConfirm.addEventListener('click', () => { dom.drawDialog.close(); showSummary(); });
+    dom.summaryContinue.addEventListener('click', () => { dom.summaryDialog.close(); dom.legalDialog.showModal(); });
+    dom.knowledgeShow.addEventListener('click', () => { dom.legalDialog.close(); dom.knowledgeList.innerHTML = knowledgeRanking(session).map((p, i) => `<p><strong>Hạng ${i + 1}. ${p.name}</strong> — ${p.correctAnswers} câu đúng · ${formatQuizTime(p.correctAnswerTimeMs)}</p>`).join(''); dom.knowledgeDialog.showModal(); });
     dom.questionDialog.addEventListener('cancel', (event) => event.preventDefault());
     renderSetup();
   }
 
-  const api = { CONFIG, createSession, startRound, rollDice, openBetting, currentPlayer, getCurrentQuestion, advanceTurn, endTurn, buyPreview, consumePreview, submitBet, beginReveal, settleRound, symbolSvg, dieSvg, initGame };
+  const api = { CONFIG, createSession, startRound, rollDice, openBetting, currentPlayer, getCurrentQuestion, advanceTurn, endTurn, buyPreview, consumePreview, submitBet, beginReveal, settleRound, pointRanking, knowledgeRanking, drawPenalty, symbolSvg, dieSvg, initGame };
   global.BauCuaGame = api;
   if (typeof module !== 'undefined') module.exports = api;
   if (global.document) global.document.addEventListener('DOMContentLoaded', initGame);

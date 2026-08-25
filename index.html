@@ -26,6 +26,13 @@
         <p class="eyebrow">Hội làng mở hội</p>
         <h1 id="setup-title">Bầu Cua<br /><span>Tôm Cá</span></h1>
         <p class="intro">Mời mọi người vào bàn, gọi đúng tên và thử vận may.</p>
+        <aside class="educational-note" aria-label="Lưu ý về mục đích trò chơi">
+          <span aria-hidden="true">⚖️</span>
+          <p>
+            <strong>Lưu ý</strong> Dưới đây là trò chơi mô phỏng tác hại của các
+            hành vi vi phạm pháp luật, cần lên án.
+          </p>
+        </aside>
         <div id="player-list" class="player-list" aria-live="polite"></div>
         <button id="add-player" class="button button-ghost" type="button">
           ＋ Thêm người chơi
@@ -52,6 +59,9 @@
             hidden
           >
             Vòng mới
+          </button>
+          <button id="end-session" class="button button-ghost" type="button">
+            Tổng kết phiên
           </button>
         </header>
         <section class="turn-card panel" aria-label="Lượt cược hiện tại">
@@ -97,7 +107,13 @@
             >
           </button>
         </section>
-        <button id="end-turn" class="button button-ghost button-wide" type="button">Kết thúc lượt</button>
+        <button
+          id="end-turn"
+          class="button button-ghost button-wide"
+          type="button"
+        >
+          Kết thúc lượt
+        </button>
         <button
           id="reveal-button"
           class="button button-primary button-wide"
@@ -130,8 +146,112 @@
       <div class="dialog-mark">?</div>
       <p class="eyebrow">Muốn chốt cược, hãy trả lời đúng</p>
       <h2 id="question-title">Câu hỏi</h2>
+      <p id="question-timer" class="question-timer" role="timer" aria-live="polite">
+        <span aria-hidden="true">⏳</span> Còn <strong>20 giây</strong>
+      </p>
       <p id="question-text" class="question-text"></p>
       <div id="answer-options" class="answer-options"></div>
+    </dialog>
+    <dialog id="summary-dialog" class="game-dialog">
+      <p class="eyebrow">Bảng điểm tạm thời</p>
+      <h2>Xếp hạng theo điểm</h2>
+      <div id="summary-list" class="settlement"></div>
+      <button
+        id="summary-continue"
+        class="button button-primary button-wide"
+        type="button"
+      >
+        Tiếp tục
+      </button>
+    </dialog>
+    <dialog id="draw-dialog" class="game-dialog">
+      <p class="eyebrow">Cơ hội bốc thăm</p>
+      <h2>Rút một cây thăm</h2>
+      <div class="draw-box">
+        <div class="draw-bait draw-bait-x2">
+          <img
+            src="assets/generated/draw-bait-x2-bubble.png"
+            alt="Nhân đôi may mắn, x2"
+          />
+        </div>
+        <div class="draw-bait draw-bait-x5">
+          <img
+            src="assets/generated/draw-bait-x5-bubble.png"
+            alt="Siêu thưởng giới hạn, x5"
+          />
+        </div>
+        <div class="draw-bait draw-bait-x10">
+          <img
+            src="assets/generated/draw-bait-x10-bubble.png"
+            alt="Jackpot cực đại, x10"
+          />
+        </div>
+        <div id="draw-scene" class="draw-scene">
+          <button
+            id="draw-urn-button"
+            class="draw-urn-button"
+            type="button"
+            aria-label="Bấm vào ống thăm để bốc thăm"
+          >
+            <img
+              src="assets/generated/fortune-urn-five-sticks.png"
+              alt="Ống thăm có năm cây thăm"
+            /><span>CHẠM ĐỂ BỐC THĂM</span>
+          </button>
+          <div id="draw-reveal" class="draw-reveal" hidden aria-live="polite">
+            <div class="draw-sparkles" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <div class="draw-result-stick">
+              <img
+                src="assets/generated/fortune-result-stick-engraved.png"
+                alt="Thẻ thăm gỗ khắc dọc Mất toàn bộ điểm"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <p id="draw-result" class="settlement"></p>
+      <button
+        id="draw-confirm"
+        class="button button-primary"
+        type="button"
+        hidden
+      >
+        Xác nhận
+      </button>
+    </dialog>
+    <dialog id="legal-dialog" class="game-dialog legal-dialog">
+      <p class="eyebrow">Cảnh báo pháp luật</p>
+      <h2>Thông điệp giáo dục</h2>
+      <p class="settlement">
+        <strong>Xử phạt hành chính:</strong> Điểm a khoản 2 Điều 28 Nghị định
+        144/2021/NĐ-CP quy định phạt tiền từ
+        <strong>1.000.000 đến 2.000.000 đồng</strong> với hành vi đánh bạc trái
+        phép như xóc đĩa khi chưa đến mức truy cứu hình sự.
+      </p>
+      <p class="settlement">
+        <strong>Xử lý hình sự:</strong> Điều 321 Bộ luật Hình sự quy định người
+        đánh bạc trái phép được thua bằng tiền hoặc hiện vật từ 5.000.000 đồng
+        trở lên có thể bị phạt cải tạo không giam giữ đến 3 năm hoặc phạt tù từ
+        6 tháng đến 3 năm.
+      </p>
+      <p class="settlement">
+        Cờ bạc có thể gây thiệt hại tài chính, nợ nần, xáo trộn trật tự xã hội
+        và tạo lệ thuộc. Trò chơi này chỉ dùng điểm mô phỏng để ôn tập.
+      </p>
+      <button
+        id="knowledge-show"
+        class="button button-primary button-wide"
+        type="button"
+      >
+        Tiếp Theo
+      </button>
+    </dialog>
+    <dialog id="knowledge-dialog" class="game-dialog">
+      <p class="eyebrow">Giá trị tri thức</p>
+      <h2>Xếp hạng theo câu đúng</h2>
+      <div id="knowledge-list" class="settlement"></div>
     </dialog>
     <dialog
       id="preview-dialog"
