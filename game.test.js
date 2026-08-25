@@ -143,6 +143,11 @@ run("renders generated image assets and exposes no skip action", () => {
   assert.equal(game.skipTurn, undefined);
 });
 
+run("uses the selected YouTube track as game music", () => {
+  const source = fs.readFileSync("game.js", "utf8");
+  assert.match(source, /youtube\.com\/embed\/pa-cRsAxPXA\?autoplay=1&loop=1&playlist=pa-cRsAxPXA/);
+});
+
 run("keeps the game screen hidden during player setup", () => {
   const css = fs.readFileSync("animations.css", "utf8");
   assert.match(css, /#game-screen\[hidden\]\s*\{\s*display\s*:\s*none\s*!important/);

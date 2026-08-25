@@ -507,7 +507,7 @@
     function beginRound() { selectedSymbol = null; dom.betError.textContent = ''; setStatus('Kết quả xúc xắc đang được khóa trong bát.'); startRound(session); render(); playIntro(); }
     dom.addPlayer.addEventListener('click', () => { if (names.length < CONFIG.questions.length) { names.push(`Người chơi ${names.length + 1}`); renderSetup(); } });
     dom.start.addEventListener('click', () => {
-      try { session = createSession(names); dom.music.src = 'https://www.youtube.com/embed/LOzUAdwiiEU?autoplay=1&loop=1&playlist=LOzUAdwiiEU'; dom.setup.hidden = true; dom.game.hidden = false; beginRound(); }
+      try { session = createSession(names); dom.music.src = 'https://www.youtube.com/embed/pa-cRsAxPXA?autoplay=1&loop=1&playlist=pa-cRsAxPXA'; dom.setup.hidden = true; dom.game.hidden = false; beginRound(); }
       catch (error) { dom.setupError.textContent = error.message; }
     });
     dom.betForm.addEventListener('submit', (event) => { event.preventDefault(); openQuestion(); });
