@@ -223,13 +223,23 @@ run("styles the draw as a large single-scene promotion", () => {
   assert.doesNotMatch(html, /fortune-stick-long\.png/);
 });
 
-run("provides a 20-second countdown in the quiz dialog", () => {
+run("provides a 10-second countdown in the quiz dialog", () => {
   const css = fs.readFileSync("styles.css", "utf8");
   const html = fs.readFileSync("index.html", "utf8");
   assert.match(html, /id="question-timer"/);
-  assert.match(html, /20 giây/);
+  assert.match(html, /10 giây/);
   assert.match(css, /\.question-timer/);
   assert.match(css, /\.question-timer\.is-urgent/);
+});
+
+run("waits for an explicit start before the 10-second quiz countdown", () => {
+  const html = fs.readFileSync("index.html", "utf8");
+  const source = fs.readFileSync("game.js", "utf8");
+  assert.match(html, /id="question-start"/);
+  assert.match(html, /Bắt đầu trả lời/);
+  assert.match(html, /Còn <strong>10 giây<\/strong>/);
+  assert.match(source, /const questionDurationMs = 10000/);
+  assert.match(source, /dom\.questionStart\.addEventListener\('click'/);
 });
 
 run("provides 100 questions limited to the corruption causes and impacts lesson", () => {

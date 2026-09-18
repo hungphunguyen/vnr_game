@@ -359,7 +359,7 @@
       setup: $('setup-screen'), game: $('game-screen'), playerList: $('player-list'), addPlayer: $('add-player'), start: $('start-game'), setupError: $('setup-error'), music: $('game-music'),
       round: $('round-number'), turn: $('turn-label'), score: $('current-score'), queue: $('queue'),
       grid: $('symbol-grid'), boardInstruction: $('board-instruction'), selectionProgress: $('selection-progress'), easy: $('choose-easy'), hard: $('choose-hard'), betError: $('bet-error'), endTurn: $('end-turn'), reveal: $('reveal-button'), statuses: $('player-statuses'), status: $('status'), newRound: $('new-round'),
-      questionDialog: $('question-dialog'), questionText: $('question-text'), questionTimer: $('question-timer'), answers: $('answer-options'), resultDialog: $('result-dialog'), resultDice: $('result-dice'), settlement: $('settlement'), resultNext: $('result-next-round'), stage: $('round-stage'), stageDice: $('stage-dice'), stageCopy: $('stage-copy'), stageBowl: $('stage-bowl'), stageContinue: $('stage-continue'),
+      questionDialog: $('question-dialog'), questionText: $('question-text'), questionTimer: $('question-timer'), questionStart: $('question-start'), answers: $('answer-options'), resultDialog: $('result-dialog'), resultDice: $('result-dice'), settlement: $('settlement'), resultNext: $('result-next-round'), stage: $('round-stage'), stageDice: $('stage-dice'), stageCopy: $('stage-copy'), stageBowl: $('stage-bowl'), stageContinue: $('stage-continue'),
       endSession: $('end-session'), summaryDialog: $('summary-dialog'), summaryList: $('summary-list'), summaryContinue: $('summary-continue'), drawDialog: $('draw-dialog'), drawScene: $('draw-scene'), drawUrn: $('draw-urn-button'), drawReveal: $('draw-reveal'), drawResult: $('draw-result'), drawConfirm: $('draw-confirm'), legalDialog: $('legal-dialog'), knowledgeShow: $('knowledge-show'), knowledgeDialog: $('knowledge-dialog'), knowledgeList: $('knowledge-list'),
     };
     let names = ['Người chơi 1', 'Người chơi 2'];
@@ -369,7 +369,8 @@
     let questionStartedAt = 0;
     let questionDeadlineAt = 0;
     let questionLocked = false;
-    const questionDurationMs = 20000;
+    let questionStarted = false;
+    const questionDurationMs = 10000;
     const formatPoints = (value) => `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(Number(value))} điểm`;
     const formatQuizTime = (timeMs) => `${(Number(timeMs) / 1000).toFixed(1).replace('.', ',')} giây`;
     const now = () => global.performance?.now?.() ?? Date.now();
@@ -487,19 +488,23 @@
       catch (error) { dom.betError.textContent = error.message; return; }
       dom.questionText.textContent = question.text; dom.answers.innerHTML = '';
       question.answers.forEach((answer, index) => {
-        const option = document.createElement('button'); option.type = 'button'; option.className = 'answer-option'; option.textContent = `${String.fromCharCode(65 + index)}. ${answer}`;
+        const option = document.createElement('button'); option.type = 'button'; option.className = 'answer-option'; option.disabled = true; option.textContent = `${String.fromCharCode(65 + index)}. ${answer}`;
         option.addEventListener('click', () => answerQuestion(index)); dom.answers.append(option);
       });
       dom.questionDialog.showModal();
       questionLocked = false;
-      startQuestionTimer();
+      questionStarted = false;
+      clearQuestionTimer();
+      dom.questionTimer.querySelector('strong').textContent = '10 giây';
+      dom.questionStart.hidden = false;
     }
 
     function answerQuestion(index, timedOut = false) {
-      if (questionLocked) return;
+      if (questionLocked || !questionStarted) return;
       questionLocked = true;
       const responseTimeMs = questionStartedAt ? Math.min(questionDurationMs, Math.max(0, now() - questionStartedAt)) : 0;
       clearQuestionTimer();
+      questionStarted = false;
       const result = submitAnswer(session, index, responseTimeMs);
       const rule = DIFFICULTIES[session.round.turnState.difficulty];
       dom.questionText.textContent = result.correct ? `Chính xác! Bạn được chọn ${rule.selectionCount} ô cược.` : timedOut ? 'Hết giờ! Bạn không được chọn ô cược trong lượt này.' : 'Chưa đúng! Bạn không được chọn ô cược trong lượt này.';
@@ -532,6 +537,13 @@
     });
     dom.easy.addEventListener('click', () => openQuestion('easy'));
     dom.hard.addEventListener('click', () => openQuestion('hard'));
+    dom.questionStart.addEventListener('click', () => {
+      if (questionLocked || questionStarted) return;
+      questionStarted = true;
+      dom.questionStart.hidden = true;
+      dom.answers.querySelectorAll('button').forEach((button) => { button.disabled = false; });
+      startQuestionTimer();
+    });
     dom.endTurn.addEventListener('click', () => { if (endTurn(session)) { dom.betError.textContent = ''; setStatus(currentPlayer(session) ? 'Đã kết thúc lượt. Người chơi tiếp theo hãy chọn mức câu hỏi.' : 'Đã hoàn tất mọi lượt.'); render(); } });
     dom.reveal.addEventListener('click', reveal);
     dom.stageContinue.addEventListener('click', () => { const settlement = settleRound(session); dom.stage.hidden = true; dom.resultDice.innerHTML = session.round.dice.map((id) => `<div class="result-die">${dieSvg(id)}<small>${symbolById(id).label}</small></div>`).join(''); const lines = session.players.map((player) => `${player.name}: +${formatPoints(settlement.awards[player.id])} · tổng ${formatPoints(player.score)}`); dom.settlement.innerHTML = lines.join('<br>'); render(); dom.resultDialog.showModal(); });

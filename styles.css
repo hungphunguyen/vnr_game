@@ -474,6 +474,7 @@ h1 span {
 .question-timer strong { color: var(--red-deep); }
 .question-timer.is-urgent { color: #fff4c9; background: #c52c1d; animation: question-timer-pulse .75s ease-in-out infinite alternate; }
 .question-timer.is-urgent strong { color: #fff; }
+.question-start { width: auto; margin: 0 0 15px; }
 .question-text {
   margin: 0 0 18px;
   font-size: 1.05rem;
