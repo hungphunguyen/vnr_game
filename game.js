@@ -111,7 +111,7 @@
 
   const CONFIG = {
     difficulties: DIFFICULTIES,
-    questionDurationMs: 10000,
+    questionDurationMs: 5000,
     symbols: [
       { id: 'bau', label: 'Bầu' },
       { id: 'cua', label: 'Cua' },
@@ -444,7 +444,7 @@
       questionLocked = false;
       questionStarted = false;
       clearQuestionTimer();
-      dom.questionTimer.querySelector('strong').textContent = '10 giây';
+      dom.questionTimer.querySelector('strong').textContent = '5 giây';
       dom.questionStart.hidden = false;
     }
 

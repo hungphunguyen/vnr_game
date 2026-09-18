@@ -67,10 +67,10 @@ run("a wrong answer creates no bet and allows ending the turn", () => {
   assert.equal(game.endTurn(session), true);
 });
 
-run("treats an answer at the 10-second deadline as timed out", () => {
+run("treats an answer at the 5-second deadline as timed out", () => {
   const session = readySession();
   const question = game.chooseDifficulty(session, "easy");
-  const result = game.submitAnswer(session, question.correctIndex, 10000);
+  const result = game.submitAnswer(session, question.correctIndex, 5000);
   assert.equal(result.correct, false);
   assert.equal(session.players[0].correctAnswers, 0);
   assert.equal(game.endTurn(session), true);
@@ -278,22 +278,22 @@ run("styles the draw as a large single-scene promotion", () => {
   assert.doesNotMatch(html, /fortune-stick-long\.png/);
 });
 
-run("provides a 10-second countdown in the quiz dialog", () => {
+run("provides a 5-second countdown in the quiz dialog", () => {
   const css = fs.readFileSync("styles.css", "utf8");
   const html = fs.readFileSync("index.html", "utf8");
   assert.match(html, /id="question-timer"/);
-  assert.match(html, /10 giây/);
+  assert.match(html, /5 giây/);
   assert.match(css, /\.question-timer/);
   assert.match(css, /\.question-timer\.is-urgent/);
 });
 
-run("waits for an explicit start before the 10-second quiz countdown", () => {
+run("waits for an explicit start before the 5-second quiz countdown", () => {
   const html = fs.readFileSync("index.html", "utf8");
   const source = fs.readFileSync("game.js", "utf8");
   assert.match(html, /id="question-start"/);
   assert.match(html, /Bắt đầu trả lời/);
-  assert.match(html, /Còn <strong>10 giây<\/strong>/);
-  assert.match(source, /questionDurationMs:\s*10000/);
+  assert.match(html, /Còn <strong>5 giây<\/strong>/);
+  assert.match(source, /questionDurationMs:\s*5000/);
   assert.match(source, /dom\.questionStart\.addEventListener\('click'/);
 });
 
