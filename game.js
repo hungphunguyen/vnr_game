@@ -345,19 +345,22 @@
     if (!session?.round || session.round.phase !== 'revealing-animation') throw new Error('Chưa thể công bố kết quả.');
     const counts = Object.fromEntries(CONFIG.symbols.map((symbol) => [symbol.id, 0]));
     session.round.dice.forEach((symbol) => { counts[symbol] += 1; });
-    const payouts = Object.fromEntries(session.players.map((player) => [player.id, 0]));
-    session.round.bets.forEach((bet) => { payouts[bet.playerId] += bet.amount * counts[bet.symbol]; });
-    session.players.forEach((player) => { player.balance += payouts[player.id]; });
+    const awards = Object.fromEntries(session.players.map((player) => [player.id, 0]));
+    session.round.bets.forEach((bet) => {
+      const matches = session.round.dice.filter((symbol) => bet.symbols.includes(symbol)).length;
+      awards[bet.playerId] += matches * bet.pointsPerMatch;
+    });
+    session.players.forEach((player) => { player.score += awards[player.id]; });
     session.round.phase = 'settled';
-    return { counts, payouts };
+    return { counts, awards };
   }
 
-  function pointRanking(session) { return [...session.players].sort((a, b) => b.balance - a.balance || a.id - b.id); }
+  function pointRanking(session) { return [...session.players].sort((a, b) => b.score - a.score || a.id - b.id); }
   function knowledgeRanking(session) { return [...session.players].sort((a, b) => b.correctAnswers - a.correctAnswers || a.correctAnswerTimeMs - b.correctAnswerTimeMs || a.id - b.id); }
   function drawPenalty(session, playerId) {
     const player = session.players.find((item) => item.id === Number(playerId));
     if (!player || player.drawUsed) return null;
-    const lost = player.balance; player.balance = 0; player.drawUsed = true; return lost;
+    const lost = player.score; player.score = 0; player.drawUsed = true; return lost;
   }
 
   function symbolSvg(id, className = '') {

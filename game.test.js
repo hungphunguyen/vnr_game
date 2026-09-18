@@ -100,6 +100,43 @@ run("hard requires exactly three distinct symbols", () => {
   });
 });
 
+function completedBet(difficulty, symbols, randomValues) {
+  const session = readySession(randomValues);
+  const question = game.chooseDifficulty(session, difficulty);
+  game.submitAnswer(session, question.correctIndex);
+  symbols.forEach((symbol) => game.toggleBetSymbol(session, symbol));
+  game.endTurn(session);
+  return session;
+}
+
+function revealAndSettle(session) {
+  game.beginReveal(session);
+  return game.settleRound(session);
+}
+
+run("easy awards one point for every matching die", () => {
+  const session = completedBet("easy", ["bau"], [0, 0, 0, 0]);
+  const settlement = revealAndSettle(session);
+  assert.equal(settlement.awards[0], 3);
+  assert.equal(session.players[0].score, 3);
+});
+
+run("hard awards 1.5 points for every matching die including repeats", () => {
+  const session = completedBet("hard", ["bau", "cua", "tom"], [0, 0, 0.2, 0]);
+  const settlement = revealAndSettle(session);
+  assert.equal(settlement.awards[0], 4.5);
+  assert.equal(session.players[0].score, 4.5);
+});
+
+run("point ranking and draw penalty use score", () => {
+  const session = game.createSession(["An", "Bình"]);
+  session.players[0].score = 1.5;
+  session.players[1].score = 3;
+  assert.deepEqual(game.pointRanking(session).map((player) => player.name), ["Bình", "An"]);
+  assert.equal(game.drawPenalty(session, 1), 3);
+  assert.equal(session.players[1].score, 0);
+});
+
 run("records response time only for correct quiz answers", () => {
   const session = readySession();
   let question = game.chooseDifficulty(session, "easy");
