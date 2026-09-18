@@ -179,6 +179,16 @@ run("shows difficulty choices and removes money wager controls", () => {
   assert.doesNotMatch(html, /id="bet-amount"|id="preview-button"|id="preview-dialog"/);
 });
 
+run("removes legacy star economy and preview actions", () => {
+  const html = fs.readFileSync("index.html", "utf8");
+  assert.doesNotMatch(html, /Số dư|Cược tối thiểu|Trả 15|Xem trước kết quả|điểm mô phỏng|⭐/i);
+  assert.equal(game.buyPreview, undefined);
+  assert.equal(game.consumePreview, undefined);
+  assert.ok(!("startingBalance" in game.CONFIG));
+  assert.ok(!("minimumBet" in game.CONFIG));
+  assert.ok(!("previewCost" in game.CONFIG));
+});
+
 run("keeps the game screen hidden during player setup", () => {
   const css = fs.readFileSync("animations.css", "utf8");
   assert.match(css, /#game-screen\[hidden\]\s*\{\s*display\s*:\s*none\s*!important/);

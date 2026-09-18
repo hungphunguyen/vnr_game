@@ -517,7 +517,7 @@
       beginReveal(session); dom.stage.hidden = false; dom.stage.className = 'round-stage is-awaiting-open'; dom.stageCopy.textContent = 'Giữ bát và kéo sang phải để mở kết quả'; dom.stageContinue.hidden = true;
       dom.stageDice.innerHTML = session.round.dice.map((id) => dieSvg(id)).join('');
       let startX = null; let opened = false;
-      const openBowl = () => { if (opened) return; opened = true; dom.stageCopy.textContent = 'Kết quả đã mở — bấm tiếp tục để thanh toán'; dom.stageContinue.hidden = false; };
+      const openBowl = () => { if (opened) return; opened = true; dom.stageCopy.textContent = 'Kết quả đã mở — bấm tiếp tục để tính điểm'; dom.stageContinue.hidden = false; };
       dom.stageBowl.onpointerdown = (event) => { startX = event.clientX; dom.stageBowl.setPointerCapture(event.pointerId); dom.stageBowl.classList.add('is-dragging'); };
       dom.stageBowl.onpointermove = (event) => { if (startX === null) return; const slide = Math.max(0, Math.min(340, event.clientX - startX)); dom.stageBowl.style.transform = `translateX(${slide}px)`; if (slide > 190) openBowl(); };
       dom.stageBowl.onpointerup = () => { startX = null; dom.stageBowl.classList.remove('is-dragging'); };

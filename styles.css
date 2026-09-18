@@ -335,17 +335,6 @@ h1 span {
   margin-top: 4px;
   font-weight: 800;
 }
-.bet-chip {
-  position: absolute;
-  top: 7px;
-  right: 7px;
-  padding: 3px 6px;
-  border-radius: 20px;
-  color: #fff;
-  background: var(--red);
-  font-size: 0.64rem;
-  font-weight: 800;
-}
 .bet-panel {
   margin-top: 18px;
   padding: 17px;
@@ -391,16 +380,6 @@ h1 span {
 .difficulty-option:disabled:not(.is-selected) {
   cursor: default;
   opacity: 0.55;
-}
-.text-button {
-  grid-column: 3;
-  justify-self: start;
-  padding: 0;
-  border: 0;
-  color: var(--muted);
-  text-decoration: underline;
-  background: transparent;
-  font-size: 0.74rem;
 }
 .players-panel {
   margin-top: 18px;
@@ -566,10 +545,6 @@ h1 span {
   }
   .difficulty-options {
     grid-template-columns: 1fr;
-  }
-  .text-button {
-    grid-column: auto;
-    justify-self: center;
   }
   .game-dialog {
     padding: 24px 20px;
