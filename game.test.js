@@ -17,18 +17,21 @@ function run(name, test) {
   }
 }
 
-run("creates players with initial funds only once", () => {
+function readySession(randomValues = [0, 0, 0, 0]) {
+  const session = game.createSession(["An"]);
+  game.startRound(session, scriptedRandom(randomValues));
+  game.rollDice(session);
+  game.openBetting(session);
+  return session;
+}
+
+run("creates players with zero score", () => {
   const session = game.createSession(["An", "Bình"]);
-  assert.deepEqual(
-    session.players.map((player) => player.balance),
-    [25, 25],
-  );
+  assert.deepEqual(session.players.map((player) => player.score), [0, 0]);
+  assert.ok(session.players.every((player) => !("balance" in player)));
   game.startRound(session, scriptedRandom([0, 0, 0]));
   game.startRound(session, scriptedRandom([0, 0, 0]));
-  assert.deepEqual(
-    session.players.map((player) => player.balance),
-    [25, 25],
-  );
+  assert.deepEqual(session.players.map((player) => player.score), [0, 0]);
 });
 
 run(
@@ -46,83 +49,65 @@ run(
   },
 );
 
-run(
-  "locks dice before betting and moves preview buyer to the final turn",
-  () => {
-    const session = game.createSession(["An", "Bình", "Chi", "Dũng"]);
-    game.startRound(session, scriptedRandom([0, 0.2, 0.4]));
-    game.openBetting(session);
-    const question = game.getCurrentQuestion(session);
-    game.submitBet(
-      session,
-      { symbol: "bau", amount: 5 },
-      question.correctIndex === 0 ? 1 : 0,
-    ); // Bình is now current player.
-    game.endTurn(session);
-    game.rollDice(session);
-    assert.deepEqual(session.round.dice, ["cua", "tom", "bau"]);
-    assert.equal(game.buyPreview(session), true);
-    assert.deepEqual(session.round.order, [0, 2, 3, 1]);
-    assert.equal(session.players[1].balance, 10);
-    assert.equal(session.round.previewBuyerId, 1);
-    assert.deepEqual(game.consumePreview(session), ["cua", "tom", "bau"]);
-    assert.equal(game.consumePreview(session), null);
-  },
-);
-
-run("charges a wrong answer without saving a bet", () => {
-  const session = game.createSession(["An"]);
-  game.startRound(session, scriptedRandom([0, 0, 0, 0]));
-  game.rollDice(session);
-  game.openBetting(session);
-  const question = game.getCurrentQuestion(session);
-  const wrongIndex = question.correctIndex === 0 ? 1 : 0;
-  const result = game.submitBet(
-    session,
-    { symbol: "bau", amount: 5 },
-    wrongIndex,
-  );
-  assert.equal(result.correct, false);
-  assert.equal(session.players[0].balance, 20);
-  assert.deepEqual(session.round.bets, []);
-  assert.deepEqual(session.round.usedQuestionIds, [question.id]);
+run("splits questions evenly and selects the requested difficulty", () => {
+  assert.equal(game.CONFIG.questions.filter((question) => question.difficulty === "easy").length, 50);
+  assert.equal(game.CONFIG.questions.filter((question) => question.difficulty === "hard").length, 50);
+  const session = readySession();
+  assert.equal(game.chooseDifficulty(session, "hard").difficulty, "hard");
 });
 
-run("pays one bet per matching die after a correct answer", () => {
-  const session = game.createSession(["An"]);
-  game.startRound(session, scriptedRandom([0, 0, 0, 0]));
-  game.rollDice(session);
-  game.openBetting(session);
-  const question = game.getCurrentQuestion(session);
-  const result = game.submitBet(
-    session,
-    { symbol: "bau", amount: 5 },
-    question.correctIndex,
-  );
-  assert.equal(result.correct, true);
-  game.endTurn(session);
-  assert.equal(session.players[0].balance, 20);
-  assert.throws(() => game.settleRound(session), /Chưa thể/);
-  game.beginReveal(session);
-  const settlement = game.settleRound(session);
-  assert.equal(settlement.payouts[0], 15);
-  assert.equal(session.players[0].balance, 35);
+run("a wrong answer creates no bet and allows ending the turn", () => {
+  const session = readySession();
+  const question = game.chooseDifficulty(session, "easy");
+  const wrongIndex = question.correctIndex === 0 ? 1 : 0;
+  const result = game.submitAnswer(session, wrongIndex);
+  assert.equal(result.correct, false);
+  assert.deepEqual(session.round.bets, []);
+  assert.deepEqual(session.round.usedQuestionIds, [question.id]);
+  assert.equal(game.endTurn(session), true);
+});
+
+run("easy requires one symbol and records only one bet", () => {
+  const session = readySession();
+  const question = game.chooseDifficulty(session, "easy");
+  game.submitAnswer(session, question.correctIndex);
+  assert.deepEqual(game.toggleBetSymbol(session, "bau"), ["bau"]);
+  assert.throws(() => game.toggleBetSymbol(session, "cua"), /1 ô/);
+  assert.equal(game.endTurn(session), true);
+  assert.deepEqual(session.round.bets[0], {
+    playerId: 0,
+    difficulty: "easy",
+    symbols: ["bau"],
+    pointsPerMatch: 1,
+  });
+  assert.throws(() => game.submitAnswer(session, question.correctIndex), /lượt trả lời/);
+});
+
+run("hard requires exactly three distinct symbols", () => {
+  const session = readySession();
+  const question = game.chooseDifficulty(session, "hard");
+  game.submitAnswer(session, question.correctIndex);
+  assert.deepEqual(game.toggleBetSymbol(session, "bau"), ["bau"]);
+  assert.deepEqual(game.toggleBetSymbol(session, "cua"), ["bau", "cua"]);
+  assert.equal(game.endTurn(session), false);
+  assert.deepEqual(game.toggleBetSymbol(session, "tom"), ["bau", "cua", "tom"]);
+  assert.equal(game.endTurn(session), true);
+  assert.deepEqual(session.round.bets[0], {
+    playerId: 0,
+    difficulty: "hard",
+    symbols: ["bau", "cua", "tom"],
+    pointsPerMatch: 1.5,
+  });
 });
 
 run("records response time only for correct quiz answers", () => {
-  const session = game.createSession(["An"]);
-  game.startRound(session, scriptedRandom([0, 0, 0, 0]));
-  game.rollDice(session);
-  game.openBetting(session);
-  let question = game.getCurrentQuestion(session);
-  game.submitBet(session, { symbol: "bau", amount: 5 }, question.correctIndex, 4200);
+  const session = readySession();
+  let question = game.chooseDifficulty(session, "easy");
+  game.submitAnswer(session, question.correctIndex, 4200);
   assert.equal(session.players[0].correctAnswerTimeMs, 4200);
-  const wrongSession = game.createSession(["Bình"]);
-  game.startRound(wrongSession, scriptedRandom([0, 0, 0, 0]));
-  game.rollDice(wrongSession);
-  game.openBetting(wrongSession);
-  question = game.getCurrentQuestion(wrongSession);
-  game.submitBet(wrongSession, { symbol: "bau", amount: 5 }, question.correctIndex === 0 ? 1 : 0, 1800);
+  const wrongSession = readySession();
+  question = game.chooseDifficulty(wrongSession, "hard");
+  game.submitAnswer(wrongSession, question.correctIndex === 0 ? 1 : 0, 1800);
   assert.equal(wrongSession.players[0].correctAnswerTimeMs, 0);
 });
 

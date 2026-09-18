@@ -173,13 +173,20 @@
       text,
       answers: answers.map((answer, answerIndex) => addAnswerContext(answer, targetAnswerLength, index, answerIndex)),
       correctIndex,
+      difficulty: index % 2 === 0 ? 'easy' : 'hard',
     };
   });
 
+  const DIFFICULTIES = {
+    easy: { label: 'Dễ', selectionCount: 1, pointsPerMatch: 1 },
+    hard: { label: 'Khó', selectionCount: 3, pointsPerMatch: 1.5 },
+  };
+
+  const createTurnState = () => ({ difficulty: null, answered: false, correct: false, symbols: [] });
+
   const CONFIG = {
-    startingBalance: 25,
-    minimumBet: 5,
     previewCost: 15,
+    difficulties: DIFFICULTIES,
     symbols: [
       { id: 'bau', label: 'Bầu' },
       { id: 'cua', label: 'Cua' },
@@ -194,9 +201,10 @@
   function createSession(names) {
     const cleanNames = names.map((name) => String(name).trim()).filter(Boolean);
     if (cleanNames.length < 1) throw new Error('Cần có ít nhất một người chơi.');
-    if (cleanNames.length > CONFIG.questions.length) throw new Error('Số người chơi vượt quá số câu hỏi.');
+    const questionLimit = Math.min(...Object.keys(DIFFICULTIES).map((difficulty) => CONFIG.questions.filter((question) => question.difficulty === difficulty).length));
+    if (cleanNames.length > questionLimit) throw new Error('Số người chơi vượt quá số câu hỏi của một mức.');
     return {
-      players: cleanNames.map((name, id) => ({ id, name, balance: CONFIG.startingBalance, correctAnswers: 0, correctAnswerTimeMs: 0, drawUsed: false })),
+      players: cleanNames.map((name, id) => ({ id, name, score: 0, correctAnswers: 0, correctAnswerTimeMs: 0, drawUsed: false })),
       round: null,
       nextRoundNumber: 1,
     };
@@ -212,6 +220,7 @@
       previewBuyerId: null,
       usedQuestionIds: [],
       question: null,
+      turnState: createTurnState(),
       bets: [],
       phase: 'intro',
       previewPayload: null,
@@ -242,15 +251,25 @@
     const round = session?.round;
     if (!round || round.phase !== 'betting') return null;
     if (round.question) return round.question;
-    const choices = CONFIG.questions.filter((question) => !round.usedQuestionIds.includes(question.id));
+    const difficulty = round.turnState.difficulty;
+    if (!difficulty) return null;
+    const choices = CONFIG.questions.filter((question) => question.difficulty === difficulty && !round.usedQuestionIds.includes(question.id));
     if (!choices.length) throw new Error('Đã dùng hết câu hỏi cho vòng này.');
     round.question = choices[Math.floor(round.random() * choices.length)];
     return round.question;
   }
 
+  function chooseDifficulty(session, difficulty) {
+    const turn = session?.round?.turnState;
+    if (!currentPlayer(session) || !DIFFICULTIES[difficulty] || turn.difficulty) throw new Error('Không thể chọn mức câu hỏi cho lượt này.');
+    turn.difficulty = difficulty;
+    return getCurrentQuestion(session);
+  }
+
   function advanceTurn(session) {
     if (!session?.round || session.round.phase !== 'betting') return false;
     session.round.question = null;
+    session.round.turnState = createTurnState();
     session.round.turnIndex += 1;
     if (session.round.turnIndex >= session.round.order.length) session.round.phase = 'revealing';
     return true;
@@ -274,33 +293,45 @@
     return payload;
   }
 
-  function validateSelection(session, selection) {
-    const player = currentPlayer(session);
-    const amount = Number(selection?.amount);
-    if (!player) throw new Error('Không có lượt cược hợp lệ.');
-    if (!CONFIG.symbols.some((symbol) => symbol.id === selection?.symbol)) throw new Error('Hãy chọn một ô cược.');
-    if (!Number.isInteger(amount) || amount < CONFIG.minimumBet) throw new Error(`Cược tối thiểu là ${CONFIG.minimumBet}.`);
-    if (amount > player.balance) throw new Error('Số dư không đủ cho mức cược này.');
-    return { player, amount };
-  }
-
-  function submitBet(session, selection, answerIndex, responseTimeMs = 0) {
-    const { player, amount } = validateSelection(session, selection);
+  function submitAnswer(session, answerIndex, responseTimeMs = 0) {
+    const turn = session?.round?.turnState;
+    if (!currentPlayer(session) || !turn?.difficulty || turn.answered) throw new Error('Không có lượt trả lời hợp lệ.');
     const question = getCurrentQuestion(session);
     session.round.usedQuestionIds.push(question.id);
-    player.balance -= amount;
     const correct = Number(answerIndex) === question.correctIndex;
+    turn.answered = true;
+    turn.correct = correct;
     if (correct) {
+      const player = currentPlayer(session);
       player.correctAnswers += 1;
       player.correctAnswerTimeMs += Math.min(20000, Math.max(0, Number(responseTimeMs) || 0));
-      session.round.bets.push({ playerId: player.id, symbol: selection.symbol, amount });
     }
-    session.round.question = null;
     return { correct, question };
   }
 
+  function toggleBetSymbol(session, symbol) {
+    const turn = session?.round?.turnState;
+    if (!currentPlayer(session) || !turn?.answered || !turn.correct) throw new Error('Bạn chưa trả lời đúng để chọn ô cược.');
+    if (!CONFIG.symbols.some((item) => item.id === symbol)) throw new Error('Ô cược không hợp lệ.');
+    const selectedIndex = turn.symbols.indexOf(symbol);
+    if (selectedIndex >= 0) turn.symbols.splice(selectedIndex, 1);
+    else {
+      const limit = DIFFICULTIES[turn.difficulty].selectionCount;
+      if (turn.symbols.length >= limit) throw new Error(`Mức ${DIFFICULTIES[turn.difficulty].label} chỉ được chọn ${limit} ô.`);
+      turn.symbols.push(symbol);
+    }
+    return [...turn.symbols];
+  }
+
   function endTurn(session) {
-    if (!currentPlayer(session)) return false;
+    const player = currentPlayer(session);
+    const turn = session?.round?.turnState;
+    if (!player || !turn?.answered) return false;
+    if (turn.correct) {
+      const rule = DIFFICULTIES[turn.difficulty];
+      if (turn.symbols.length !== rule.selectionCount) return false;
+      session.round.bets.push({ playerId: player.id, difficulty: turn.difficulty, symbols: [...turn.symbols], pointsPerMatch: rule.pointsPerMatch });
+    }
     return advanceTurn(session);
   }
 
@@ -528,7 +559,7 @@
     renderSetup();
   }
 
-  const api = { CONFIG, createSession, startRound, rollDice, openBetting, currentPlayer, getCurrentQuestion, advanceTurn, endTurn, buyPreview, consumePreview, submitBet, beginReveal, settleRound, pointRanking, knowledgeRanking, drawPenalty, symbolSvg, dieSvg, initGame };
+  const api = { CONFIG, createSession, startRound, rollDice, openBetting, currentPlayer, getCurrentQuestion, chooseDifficulty, submitAnswer, toggleBetSymbol, advanceTurn, endTurn, buyPreview, consumePreview, beginReveal, settleRound, pointRanking, knowledgeRanking, drawPenalty, symbolSvg, dieSvg, initGame };
   global.BauCuaGame = api;
   if (typeof module !== 'undefined') module.exports = api;
   if (global.document) global.document.addEventListener('DOMContentLoaded', initGame);
