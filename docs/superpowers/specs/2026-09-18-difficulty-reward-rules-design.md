@@ -81,4 +81,3 @@ Kiểm thử tự động cần chứng minh:
 - Điểm cộng dồn và thứ hạng dùng tổng điểm mới.
 - Mã và giao diện không còn số dư, mức cược tiền hoặc xem trước kết quả.
 - Các kiểm thử hiện có không liên quan đến luật cược vẫn tiếp tục đạt.
-
