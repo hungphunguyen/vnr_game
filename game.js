@@ -129,7 +129,7 @@
     const questionLimit = Math.min(...Object.keys(DIFFICULTIES).map((difficulty) => CONFIG.questions.filter((question) => question.difficulty === difficulty).length));
     if (cleanNames.length > questionLimit) throw new Error('Số người chơi vượt quá số câu hỏi của một mức.');
     return {
-      players: cleanNames.map((name, id) => ({ id, name, score: 0, correctAnswers: 0, correctAnswerTimeMs: 0, drawUsed: false })),
+      players: cleanNames.map((name, id) => ({ id, name, score: 0, correctAnswers: 0, hardCorrectAnswers: 0, correctAnswerTimeMs: 0, drawUsed: false })),
       round: null,
       nextRoundNumber: 1,
     };
@@ -210,6 +210,7 @@
     if (correct) {
       const player = currentPlayer(session);
       player.correctAnswers += 1;
+      if (question.difficulty === 'hard') player.hardCorrectAnswers += 1;
       player.correctAnswerTimeMs += Math.min(CONFIG.questionDurationMs, Math.max(0, Number(responseTimeMs) || 0));
     }
     return { correct, question };
@@ -262,11 +263,18 @@
   }
 
   function pointRanking(session) { return [...session.players].sort((a, b) => b.score - a.score || a.id - b.id); }
-  function knowledgeRanking(session) { return [...session.players].sort((a, b) => b.correctAnswers - a.correctAnswers || a.correctAnswerTimeMs - b.correctAnswerTimeMs || a.id - b.id); }
-  function drawPenalty(session, playerId) {
+  function drawEligiblePlayerIds(session) { return pointRanking(session).slice(1, 3).map((player) => player.id); }
+  function knowledgeRanking(session) {
+    return [...session.players].sort((a, b) => b.hardCorrectAnswers - a.hardCorrectAnswers || b.correctAnswers - a.correctAnswers || a.correctAnswerTimeMs - b.correctAnswerTimeMs || a.id - b.id);
+  }
+  function drawPenalty(session, playerId, random = Math.random) {
     const player = session.players.find((item) => item.id === Number(playerId));
-    if (!player || player.drawUsed) return null;
-    const lost = player.score; player.score = 0; player.drawUsed = true; return lost;
+    if (!player || player.drawUsed || !drawEligiblePlayerIds(session).includes(player.id)) return null;
+    const previousScore = player.score;
+    const outcome = random() < 0.5 ? 'lose-all' : 'reduce-70';
+    player.score = outcome === 'lose-all' ? 0 : previousScore * 0.3;
+    player.drawUsed = true;
+    return { outcome, previousScore, score: player.score, deducted: previousScore - player.score };
   }
 
   function symbolSvg(id, className = '') {
@@ -486,7 +494,7 @@
     renderSetup();
   }
 
-  const api = { CONFIG, createSession, startRound, rollDice, openBetting, currentPlayer, getCurrentQuestion, chooseDifficulty, submitAnswer, toggleBetSymbol, advanceTurn, endTurn, beginReveal, settleRound, pointRanking, knowledgeRanking, drawPenalty, symbolSvg, dieSvg, initGame };
+  const api = { CONFIG, createSession, startRound, rollDice, openBetting, currentPlayer, getCurrentQuestion, chooseDifficulty, submitAnswer, toggleBetSymbol, advanceTurn, endTurn, beginReveal, settleRound, pointRanking, drawEligiblePlayerIds, knowledgeRanking, drawPenalty, symbolSvg, dieSvg, initGame };
   global.BauCuaGame = api;
   if (typeof module !== 'undefined') module.exports = api;
   if (global.document) global.document.addEventListener('DOMContentLoaded', initGame);

@@ -138,13 +138,38 @@ run("hard awards 1.5 points for every matching die including repeats", () => {
   assert.equal(session.players[0].score, 4.5);
 });
 
-run("point ranking and draw penalty use score", () => {
-  const session = game.createSession(["An", "Bình"]);
-  session.players[0].score = 1.5;
-  session.players[1].score = 3;
-  assert.deepEqual(game.pointRanking(session).map((player) => player.name), ["Bình", "An"]);
-  assert.equal(game.drawPenalty(session, 1), 3);
-  assert.equal(session.players[1].score, 0);
+run("offers the draw only to second and third score ranks", () => {
+  const session = game.createSession(["Nhất", "Nhì", "Ba", "Tư"]);
+  [40, 30, 20, 10].forEach((score, id) => { session.players[id].score = score; });
+  assert.deepEqual(game.drawEligiblePlayerIds(session), [1, 2]);
+  assert.deepEqual(
+    game.drawEligiblePlayerIds(game.createSession(["Nhất", "Nhì"])),
+    [1],
+  );
+});
+
+run("draw can remove every point and blocks a second draw", () => {
+  const session = game.createSession(["Nhất", "An", "Ba", "Tư"]);
+  [20, 10, 5, 1].forEach((score, id) => { session.players[id].score = score; });
+  assert.deepEqual(game.drawPenalty(session, 1, () => 0), {
+    outcome: "lose-all", previousScore: 10, score: 0, deducted: 10,
+  });
+  assert.equal(game.drawPenalty(session, 1, () => 0), null);
+});
+
+run("draw can reduce score by seventy percent", () => {
+  const session = game.createSession(["Nhất", "An", "Ba"]);
+  [20, 15, 5].forEach((score, id) => { session.players[id].score = score; });
+  assert.deepEqual(game.drawPenalty(session, 1, () => 0.9), {
+    outcome: "reduce-70", previousScore: 15, score: 4.5, deducted: 10.5,
+  });
+});
+
+run("draw rejects a player outside second and third ranks", () => {
+  const session = game.createSession(["Nhất", "Nhì", "Ba", "Tư"]);
+  [40, 30, 20, 10].forEach((score, id) => { session.players[id].score = score; });
+  assert.equal(game.drawPenalty(session, 0, () => 0), null);
+  assert.equal(game.drawPenalty(session, 3, () => 0), null);
 });
 
 run("records response time only for correct quiz answers", () => {
@@ -158,15 +183,21 @@ run("records response time only for correct quiz answers", () => {
   assert.equal(wrongSession.players[0].correctAnswerTimeMs, 0);
 });
 
-run("ranks equal correct totals by the fastest accumulated response time", () => {
-  const session = game.createSession(["Chậm", "Nhanh", "Ít câu"]);
-  session.players[0].correctAnswers = 5;
-  session.players[0].correctAnswerTimeMs = 8500;
-  session.players[1].correctAnswers = 5;
-  session.players[1].correctAnswerTimeMs = 4200;
-  session.players[2].correctAnswers = 4;
-  session.players[2].correctAnswerTimeMs = 100;
-  assert.deepEqual(game.knowledgeRanking(session).map((player) => player.name), ["Nhanh", "Chậm", "Ít câu"]);
+run("records hard correct answers separately", () => {
+  const session = readySession();
+  const question = game.chooseDifficulty(session, "hard");
+  game.submitAnswer(session, question.correctIndex, 1200);
+  assert.equal(session.players[0].correctAnswers, 1);
+  assert.equal(session.players[0].hardCorrectAnswers, 1);
+});
+
+run("knowledge ranking prioritizes hard answers then totals and time", () => {
+  const session = game.createSession(["Nhanh dễ", "Nhiều khó", "Chậm khó", "Ít câu"]);
+  Object.assign(session.players[0], { hardCorrectAnswers: 1, correctAnswers: 9, correctAnswerTimeMs: 1000 });
+  Object.assign(session.players[1], { hardCorrectAnswers: 2, correctAnswers: 2, correctAnswerTimeMs: 9000 });
+  Object.assign(session.players[2], { hardCorrectAnswers: 2, correctAnswers: 2, correctAnswerTimeMs: 4000 });
+  Object.assign(session.players[3], { hardCorrectAnswers: 1, correctAnswers: 3, correctAnswerTimeMs: 100 });
+  assert.deepEqual(game.knowledgeRanking(session).map((player) => player.name), ["Chậm khó", "Nhiều khó", "Nhanh dễ", "Ít câu"]);
 });
 
 run("renders generated image assets and exposes no skip action", () => {
