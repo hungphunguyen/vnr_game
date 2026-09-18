@@ -185,7 +185,6 @@
   const createTurnState = () => ({ difficulty: null, answered: false, correct: false, symbols: [] });
 
   const CONFIG = {
-    previewCost: 15,
     difficulties: DIFFICULTIES,
     symbols: [
       { id: 'bau', label: 'Bầu' },
@@ -217,13 +216,11 @@
       dice: null,
       order: session.players.map((player) => player.id),
       turnIndex: 0,
-      previewBuyerId: null,
       usedQuestionIds: [],
       question: null,
       turnState: createTurnState(),
       bets: [],
       phase: 'intro',
-      previewPayload: null,
       random,
     };
     return session.round;
@@ -273,24 +270,6 @@
     session.round.turnIndex += 1;
     if (session.round.turnIndex >= session.round.order.length) session.round.phase = 'revealing';
     return true;
-  }
-
-  function buyPreview(session) {
-    const player = currentPlayer(session);
-    if (!player || session.round.previewBuyerId !== null || player.balance < CONFIG.previewCost) return false;
-    player.balance -= CONFIG.previewCost;
-    session.round.previewBuyerId = player.id;
-    session.round.previewPayload = [...session.round.dice];
-    const [buyerId] = session.round.order.splice(session.round.turnIndex, 1);
-    session.round.order.push(buyerId);
-    return true;
-  }
-
-  function consumePreview(session) {
-    if (!session?.round || !session.round.previewPayload) return null;
-    const payload = session.round.previewPayload;
-    session.round.previewPayload = null;
-    return payload;
   }
 
   function submitAnswer(session, answerIndex, responseTimeMs = 0) {
@@ -378,26 +357,25 @@
     const $ = (id) => document.getElementById(id);
     const dom = {
       setup: $('setup-screen'), game: $('game-screen'), playerList: $('player-list'), addPlayer: $('add-player'), start: $('start-game'), setupError: $('setup-error'), music: $('game-music'),
-      round: $('round-number'), turn: $('turn-label'), balance: $('current-balance'), queue: $('queue'),
-      grid: $('symbol-grid'), amount: $('bet-amount'), betForm: $('bet-form'), betError: $('bet-error'), preview: $('preview-button'), endTurn: $('end-turn'), reveal: $('reveal-button'), statuses: $('player-statuses'), status: $('status'), newRound: $('new-round'),
-      questionDialog: $('question-dialog'), questionText: $('question-text'), questionTimer: $('question-timer'), answers: $('answer-options'), previewDialog: $('preview-dialog'), previewResult: $('preview-result-dice'), previewClose: $('preview-close'), resultDialog: $('result-dialog'), resultDice: $('result-dice'), settlement: $('settlement'), resultNext: $('result-next-round'), stage: $('round-stage'), stageDice: $('stage-dice'), stageCopy: $('stage-copy'), stageBowl: $('stage-bowl'), stageContinue: $('stage-continue'),
+      round: $('round-number'), turn: $('turn-label'), score: $('current-score'), queue: $('queue'),
+      grid: $('symbol-grid'), boardInstruction: $('board-instruction'), selectionProgress: $('selection-progress'), easy: $('choose-easy'), hard: $('choose-hard'), betError: $('bet-error'), endTurn: $('end-turn'), reveal: $('reveal-button'), statuses: $('player-statuses'), status: $('status'), newRound: $('new-round'),
+      questionDialog: $('question-dialog'), questionText: $('question-text'), questionTimer: $('question-timer'), answers: $('answer-options'), resultDialog: $('result-dialog'), resultDice: $('result-dice'), settlement: $('settlement'), resultNext: $('result-next-round'), stage: $('round-stage'), stageDice: $('stage-dice'), stageCopy: $('stage-copy'), stageBowl: $('stage-bowl'), stageContinue: $('stage-continue'),
       endSession: $('end-session'), summaryDialog: $('summary-dialog'), summaryList: $('summary-list'), summaryContinue: $('summary-continue'), drawDialog: $('draw-dialog'), drawScene: $('draw-scene'), drawUrn: $('draw-urn-button'), drawReveal: $('draw-reveal'), drawResult: $('draw-result'), drawConfirm: $('draw-confirm'), legalDialog: $('legal-dialog'), knowledgeShow: $('knowledge-show'), knowledgeDialog: $('knowledge-dialog'), knowledgeList: $('knowledge-list'),
     };
     let names = ['Người chơi 1', 'Người chơi 2'];
     let session = null;
-    let selectedSymbol = null;
     let audioContext = null;
     let questionTimerId = null;
     let questionStartedAt = 0;
     let questionDeadlineAt = 0;
     let questionLocked = false;
     const questionDurationMs = 20000;
-    const money = (value) => `${Number(value).toLocaleString('vi-VN')} ⭐`;
+    const formatPoints = (value) => `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(Number(value))} điểm`;
     const formatQuizTime = (timeMs) => `${(Number(timeMs) / 1000).toFixed(1).replace('.', ',')} giây`;
     const now = () => global.performance?.now?.() ?? Date.now();
     const symbolById = (id) => CONFIG.symbols.find((symbol) => symbol.id === id);
     const setStatus = (message) => { dom.status.textContent = message; };
-    const showSummary = () => { dom.summaryList.innerHTML = pointRanking(session).map((p, i) => `<p><strong>Hạng ${i + 1}. ${p.name}</strong> — ${money(p.balance)} ${p.drawUsed ? '✓ Đã rút' : `<button class="draw-player" data-id="${p.id}" type="button"><img src="assets/generated/fortune-stick-icon.png" alt=""> Bốc thăm</button>`}</p>`).join(''); dom.summaryList.querySelectorAll('.draw-player').forEach((button) => button.addEventListener('click', () => { dom.drawUrn.dataset.id = button.dataset.id; dom.drawScene.className = 'draw-scene'; dom.drawReveal.hidden = true; dom.drawUrn.disabled = false; dom.drawResult.textContent = 'Chạm vào ống thăm để bắt đầu.'; dom.drawConfirm.hidden = true; dom.drawDialog.showModal(); })); };
+    const showSummary = () => { dom.summaryList.innerHTML = pointRanking(session).map((p, i) => `<p><strong>Hạng ${i + 1}. ${p.name}</strong> — ${formatPoints(p.score)} ${p.drawUsed ? '✓ Đã rút' : `<button class="draw-player" data-id="${p.id}" type="button"><img src="assets/generated/fortune-stick-icon.png" alt=""> Bốc thăm</button>`}</p>`).join(''); dom.summaryList.querySelectorAll('.draw-player').forEach((button) => button.addEventListener('click', () => { dom.drawUrn.dataset.id = button.dataset.id; dom.drawScene.className = 'draw-scene'; dom.drawReveal.hidden = true; dom.drawUrn.disabled = false; dom.drawResult.textContent = 'Chạm vào ống thăm để bắt đầu.'; dom.drawConfirm.hidden = true; dom.drawDialog.showModal(); })); };
 
     function clearQuestionTimer() {
       if (questionTimerId !== null) global.clearInterval(questionTimerId);
@@ -455,13 +433,19 @@
 
     function renderBoard() {
       dom.grid.innerHTML = '';
-      const bets = session.round.bets;
+      const turnState = session.round.turnState;
+      const canSelect = session.round.phase === 'betting' && turnState.answered && turnState.correct;
       CONFIG.symbols.forEach((symbol) => {
-        const button = document.createElement('button'); button.type = 'button'; button.className = `symbol-cell${selectedSymbol === symbol.id ? ' selected' : ''}`;
-        const total = bets.filter((bet) => bet.symbol === symbol.id).reduce((sum, bet) => sum + bet.amount, 0);
-        button.disabled = session.round.phase !== 'betting';
-        button.innerHTML = `${total ? `<span class="bet-chip">${money(total)}</span>` : ''}<span class="icon">${symbolSvg(symbol.id)}</span><span class="label">${symbol.label}</span>`;
-        button.addEventListener('click', () => { selectedSymbol = symbol.id; dom.betError.textContent = ''; renderBoard(); });
+        const selected = turnState.symbols.includes(symbol.id);
+        const button = document.createElement('button'); button.type = 'button'; button.className = `symbol-cell${selected ? ' selected' : ''}`;
+        button.disabled = !canSelect;
+        button.setAttribute('aria-pressed', String(selected));
+        button.innerHTML = `<span class="icon">${symbolSvg(symbol.id)}</span><span class="label">${symbol.label}</span>`;
+        button.addEventListener('click', () => {
+          try { toggleBetSymbol(session, symbol.id); dom.betError.textContent = ''; }
+          catch (error) { dom.betError.textContent = error.message; }
+          render();
+        });
         dom.grid.append(button);
       });
     }
@@ -470,36 +454,37 @@
       const round = session.round;
       const player = currentPlayer(session);
       const betting = round.phase === 'betting';
+      const turnState = round.turnState;
+      const rule = turnState.difficulty ? DIFFICULTIES[turnState.difficulty] : null;
+      const turnReady = betting && turnState.answered && (!turnState.correct || turnState.symbols.length === rule.selectionCount);
       dom.round.textContent = round.number;
       dom.turn.textContent = player ? player.name : round.phase === 'revealing' ? 'Chuẩn bị mở bát' : 'Vòng đã kết thúc';
-      dom.balance.textContent = player ? money(player.balance) : '—';
+      dom.score.textContent = player ? formatPoints(player.score) : '—';
       dom.queue.textContent = betting ? `Thứ tự còn lại: ${round.order.slice(round.turnIndex).map((id) => session.players[id].name).join(' → ')}` : 'Đã hoàn tất mọi lượt cược.';
-      dom.preview.disabled = !betting || round.previewBuyerId !== null || !player || player.balance < CONFIG.previewCost;
-      dom.amount.disabled = !betting;
-      dom.betForm.querySelector('button').disabled = !betting;
+      [dom.easy, dom.hard].forEach((button) => { button.disabled = !betting || turnState.difficulty !== null; });
+      dom.easy.classList.toggle('is-selected', turnState.difficulty === 'easy');
+      dom.hard.classList.toggle('is-selected', turnState.difficulty === 'hard');
+      dom.boardInstruction.textContent = !betting ? 'Đã khóa lựa chọn' : !turnState.difficulty ? 'Hãy chọn mức câu hỏi trước' : !turnState.answered ? 'Đang trả lời câu hỏi' : !turnState.correct ? 'Không có lượt cược — hãy kết thúc lượt' : `Chọn đủ ${rule.selectionCount} ô cược`;
+      dom.selectionProgress.textContent = turnState.correct ? `${turnState.symbols.length}/${rule.selectionCount} ô đã chọn` : '';
       dom.newRound.hidden = round.phase !== 'settled';
       dom.endTurn.hidden = round.phase !== 'betting';
+      dom.endTurn.disabled = !turnReady;
       dom.reveal.hidden = round.phase !== 'revealing';
       renderBoard();
       dom.statuses.innerHTML = '';
       session.players.forEach((item) => {
-        const betsText = round.bets.filter((bet) => bet.playerId === item.id).map((bet) => `${symbolById(bet.symbol).label} ${money(bet.amount)}`).join(', ');
+        const betsText = round.bets.filter((bet) => bet.playerId === item.id).map((bet) => `${DIFFICULTIES[bet.difficulty].label}: ${bet.symbols.map((symbol) => symbolById(symbol).label).join(', ')}`).join(' · ');
+        const activeSelection = player?.id === item.id && turnState.symbols.length ? `Đang chọn: ${turnState.symbols.map((symbol) => symbolById(symbol).label).join(', ')}` : '';
         const card = document.createElement('div'); card.className = `player-status${player?.id === item.id ? ' active' : ''}`;
-        card.innerHTML = `<strong>${item.name}</strong><span id="balance-${item.id}">${money(item.balance)}</span><small>${betsText || 'Chưa có cược'}</small>`;
+        card.innerHTML = `<strong>${item.name}</strong><span id="score-${item.id}">${formatPoints(item.score)}</span><small>${betsText || activeSelection || 'Chưa có lựa chọn'}</small>`;
         dom.statuses.append(card);
       });
-      if (player && round.previewBuyerId === player.id && round.previewPayload && !dom.previewDialog.open) {
-        dom.previewResult.innerHTML = round.previewPayload.map((id) => `<div class="result-die">${dieSvg(id)}<small>${symbolById(id).label}</small></div>`).join('');
-        dom.previewDialog.showModal();
-      }
     }
 
-    function openQuestion() {
-      const player = currentPlayer(session); const amount = Number(dom.amount.value);
-      if (!selectedSymbol) { dom.betError.textContent = 'Hãy chọn một ô trên bàn cược.'; return; }
-      if (!Number.isInteger(amount) || amount < CONFIG.minimumBet) { dom.betError.textContent = `Mức cược tối thiểu là ${money(CONFIG.minimumBet)}.`; return; }
-      if (amount > player.balance) { dom.betError.textContent = 'Số dư không đủ cho mức cược này.'; return; }
-      const question = getCurrentQuestion(session);
+    function openQuestion(difficulty) {
+      let question;
+      try { question = chooseDifficulty(session, difficulty); dom.betError.textContent = ''; }
+      catch (error) { dom.betError.textContent = error.message; return; }
       dom.questionText.textContent = question.text; dom.answers.innerHTML = '';
       question.answers.forEach((answer, index) => {
         const option = document.createElement('button'); option.type = 'button'; option.className = 'answer-option'; option.textContent = `${String.fromCharCode(65 + index)}. ${answer}`;
@@ -515,16 +500,17 @@
       questionLocked = true;
       const responseTimeMs = questionStartedAt ? Math.min(questionDurationMs, Math.max(0, now() - questionStartedAt)) : 0;
       clearQuestionTimer();
-      const result = submitBet(session, { symbol: selectedSymbol, amount: Number(dom.amount.value) }, index, responseTimeMs);
-      dom.questionText.textContent = result.correct ? 'Chính xác! Cược của bạn đã được ghi nhận.' : timedOut ? `Hết giờ! Bạn bị trừ ${money(dom.amount.value)} và lượt cược này bị vô hiệu hóa.` : `Chưa đúng! Bạn bị trừ ${money(dom.amount.value)} và lượt cược này bị vô hiệu hóa.`;
+      const result = submitAnswer(session, index, responseTimeMs);
+      const rule = DIFFICULTIES[session.round.turnState.difficulty];
+      dom.questionText.textContent = result.correct ? `Chính xác! Bạn được chọn ${rule.selectionCount} ô cược.` : timedOut ? 'Hết giờ! Bạn không được chọn ô cược trong lượt này.' : 'Chưa đúng! Bạn không được chọn ô cược trong lượt này.';
       dom.answers.innerHTML = '';
-      global.setTimeout(() => { dom.questionDialog.close(); selectedSymbol = null; questionLocked = false; setStatus(result.correct ? 'Đã ghi nhận cược.' : timedOut ? 'Hết giờ: lượt cược đã bị vô hiệu hóa.' : 'Trả lời sai: lượt cược đã bị vô hiệu hóa.'); render(); }, 1100);
+      global.setTimeout(() => { dom.questionDialog.close(); questionLocked = false; setStatus(result.correct ? `Hãy chọn đủ ${rule.selectionCount} ô rồi kết thúc lượt.` : timedOut ? 'Hết giờ: hãy kết thúc lượt.' : 'Trả lời sai: hãy kết thúc lượt.'); render(); }, 1100);
     }
 
     function playIntro() {
       dom.stageBowl.style.transform = ''; dom.stage.hidden = false; dom.stage.className = 'round-stage is-shaking'; dom.stageCopy.textContent = 'Úp bát · lắc lắc · mở hội'; playShakeSound();
       dom.stageDice.innerHTML = ['bau', 'cua', 'tom'].map((id) => dieSvg(id)).join('');
-      global.setTimeout(() => { rollDice(session); dom.stage.hidden = true; openBetting(session); setStatus('Đến lượt người chơi đầu tiên đặt cược.'); render(); }, 2600);
+      global.setTimeout(() => { rollDice(session); dom.stage.hidden = true; openBetting(session); setStatus('Đến lượt người chơi đầu tiên chọn mức câu hỏi.'); render(); }, 2600);
     }
 
     function reveal() {
@@ -538,22 +524,21 @@
       dom.stageBowl.onkeydown = (event) => { if (event.key === 'Enter' || event.key === ' ') openBowl(); };
     }
 
-    function beginRound() { selectedSymbol = null; dom.betError.textContent = ''; setStatus('Kết quả xúc xắc đang được khóa trong bát.'); startRound(session); render(); playIntro(); }
-    dom.addPlayer.addEventListener('click', () => { if (names.length < CONFIG.questions.length) { names.push(`Người chơi ${names.length + 1}`); renderSetup(); } });
+    function beginRound() { dom.betError.textContent = ''; setStatus('Kết quả xúc xắc đang được khóa trong bát.'); startRound(session); render(); playIntro(); }
+    dom.addPlayer.addEventListener('click', () => { if (names.length < CONFIG.questions.length / 2) { names.push(`Người chơi ${names.length + 1}`); renderSetup(); } });
     dom.start.addEventListener('click', () => {
       try { session = createSession(names); dom.music.src = 'https://www.youtube.com/embed/pa-cRsAxPXA?autoplay=1&loop=1&playlist=pa-cRsAxPXA'; dom.setup.hidden = true; dom.game.hidden = false; beginRound(); }
       catch (error) { dom.setupError.textContent = error.message; }
     });
-    dom.betForm.addEventListener('submit', (event) => { event.preventDefault(); openQuestion(); });
-    dom.preview.addEventListener('click', () => { if (buyPreview(session)) { selectedSymbol = null; setStatus('Bạn đã trả phí xem trước và được chuyển xuống lượt cuối.'); render(); } });
-    dom.previewClose.addEventListener('click', () => { consumePreview(session); dom.previewDialog.close(); setStatus('Đã đóng xem trước. Hãy chọn ô cược của bạn.'); render(); });
-    dom.endTurn.addEventListener('click', () => { endTurn(session); selectedSymbol = null; setStatus('Đã kết thúc lượt.'); render(); });
+    dom.easy.addEventListener('click', () => openQuestion('easy'));
+    dom.hard.addEventListener('click', () => openQuestion('hard'));
+    dom.endTurn.addEventListener('click', () => { if (endTurn(session)) { dom.betError.textContent = ''; setStatus(currentPlayer(session) ? 'Đã kết thúc lượt. Người chơi tiếp theo hãy chọn mức câu hỏi.' : 'Đã hoàn tất mọi lượt.'); render(); } });
     dom.reveal.addEventListener('click', reveal);
-    dom.stageContinue.addEventListener('click', () => { const settlement = settleRound(session); dom.stage.hidden = true; dom.resultDice.innerHTML = session.round.dice.map((id) => `<div class="result-die">${dieSvg(id)}<small>${symbolById(id).label}</small></div>`).join(''); const lines = session.players.map((player) => `${player.name}: nhận ${money(settlement.payouts[player.id])} · còn ${money(player.balance)}`); dom.settlement.innerHTML = lines.join('<br>'); render(); dom.resultDialog.showModal(); });
+    dom.stageContinue.addEventListener('click', () => { const settlement = settleRound(session); dom.stage.hidden = true; dom.resultDice.innerHTML = session.round.dice.map((id) => `<div class="result-die">${dieSvg(id)}<small>${symbolById(id).label}</small></div>`).join(''); const lines = session.players.map((player) => `${player.name}: +${formatPoints(settlement.awards[player.id])} · tổng ${formatPoints(player.score)}`); dom.settlement.innerHTML = lines.join('<br>'); render(); dom.resultDialog.showModal(); });
     dom.newRound.addEventListener('click', beginRound);
     dom.resultNext.addEventListener('click', () => { dom.resultDialog.close(); beginRound(); });
     dom.endSession.addEventListener('click', () => { showSummary(); dom.summaryDialog.showModal(); });
-    const revealDraw = () => { dom.drawScene.classList.remove('is-shaking'); dom.drawScene.classList.add('is-fading'); dom.drawReveal.hidden = false; global.setTimeout(() => { dom.drawScene.classList.add('is-revealed'); const lost = drawPenalty(session, dom.drawUrn.dataset.id); if (lost === null) return; dom.drawResult.textContent = `Cây thăm cảnh báo: bạn mất toàn bộ ${money(lost)} điểm mô phỏng.`; dom.drawConfirm.hidden = false; }, 1100); };
+    const revealDraw = () => { dom.drawScene.classList.remove('is-shaking'); dom.drawScene.classList.add('is-fading'); dom.drawReveal.hidden = false; global.setTimeout(() => { dom.drawScene.classList.add('is-revealed'); const lost = drawPenalty(session, dom.drawUrn.dataset.id); if (lost === null) return; dom.drawResult.textContent = `Cây thăm cảnh báo: bạn mất toàn bộ ${formatPoints(lost)}.`; dom.drawConfirm.hidden = false; }, 1100); };
     dom.drawUrn.addEventListener('click', () => { if (dom.drawUrn.disabled) return; dom.drawUrn.disabled = true; dom.drawScene.classList.add('is-shaking'); global.setTimeout(revealDraw, 1100); });
     dom.drawConfirm.addEventListener('click', () => { dom.drawDialog.close(); showSummary(); });
     dom.summaryContinue.addEventListener('click', () => { dom.summaryDialog.close(); dom.legalDialog.showModal(); });
@@ -562,7 +547,7 @@
     renderSetup();
   }
 
-  const api = { CONFIG, createSession, startRound, rollDice, openBetting, currentPlayer, getCurrentQuestion, chooseDifficulty, submitAnswer, toggleBetSymbol, advanceTurn, endTurn, buyPreview, consumePreview, beginReveal, settleRound, pointRanking, knowledgeRanking, drawPenalty, symbolSvg, dieSvg, initGame };
+  const api = { CONFIG, createSession, startRound, rollDice, openBetting, currentPlayer, getCurrentQuestion, chooseDifficulty, submitAnswer, toggleBetSymbol, advanceTurn, endTurn, beginReveal, settleRound, pointRanking, knowledgeRanking, drawPenalty, symbolSvg, dieSvg, initGame };
   global.BauCuaGame = api;
   if (typeof module !== 'undefined') module.exports = api;
   if (global.document) global.document.addEventListener('DOMContentLoaded', initGame);

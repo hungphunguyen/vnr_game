@@ -64,53 +64,40 @@
             Tổng kết phiên
           </button>
         </header>
-        <section class="turn-card panel" aria-label="Lượt cược hiện tại">
+        <section class="turn-card panel" aria-label="Lượt chơi hiện tại">
           <div>
             <p class="turn-kicker">Đến lượt</p>
             <h3 id="turn-label">—</h3>
           </div>
-          <div class="balance-wrap">
-            <span>Số dư</span><strong id="current-balance">0đ</strong>
+          <div class="score-wrap">
+            <span>Tổng điểm</span><strong id="current-score">0 điểm</strong>
           </div>
           <p id="queue" class="queue"></p>
         </section>
         <section class="board panel" aria-label="Bàn cược bầu cua">
           <div class="board-heading">
-            <span>Chọn một ô cược</span><small>Cược tối thiểu 5 ⭐</small>
+            <span id="board-instruction">Hãy chọn mức câu hỏi trước</span>
+            <small id="selection-progress"></small>
           </div>
           <div id="symbol-grid" class="symbol-grid"></div>
         </section>
-        <section class="bet-panel panel">
-          <form id="bet-form">
-            <label for="bet-amount">Mức cược</label>
-            <div class="amount-row">
-              <input
-                id="bet-amount"
-                type="number"
-                inputmode="numeric"
-                min="5"
-                step="1"
-                value="5"
-              /><span>⭐</span>
-            </div>
-            <p id="bet-error" class="form-note error" role="alert"></p>
-            <button id="place-bet" class="button button-primary" type="submit">
-              Trả lời để đặt cược
+        <section class="bet-panel panel" aria-labelledby="difficulty-title">
+          <h3 id="difficulty-title">Chọn mức câu hỏi</h3>
+          <div class="difficulty-options">
+            <button id="choose-easy" class="difficulty-option" type="button">
+              <strong>Dễ</strong><span>Chọn 1 ô × 1 điểm</span>
             </button>
-          </form>
-          <div class="or-divider"><span>hoặc</span></div>
-          <button id="preview-button" class="preview-button" type="button">
-            <span class="preview-icon">🔮</span
-            ><span
-              ><strong>Xem trước kết quả</strong
-              ><small>Trả 15 ⭐ · chuyển xuống cuối lượt</small></span
-            >
-          </button>
+            <button id="choose-hard" class="difficulty-option" type="button">
+              <strong>Khó</strong><span>Chọn 3 ô × 1,5 điểm</span>
+            </button>
+          </div>
+          <p id="bet-error" class="form-note error" role="alert"></p>
         </section>
         <button
           id="end-turn"
           class="button button-ghost button-wide"
           type="button"
+          disabled
         >
           Kết thúc lượt
         </button>
@@ -123,7 +110,7 @@
           Hiện kết quả vòng chơi
         </button>
         <section class="players-panel panel" aria-labelledby="players-title">
-          <h3 id="players-title">Sổ tiền người chơi</h3>
+          <h3 id="players-title">Điểm người chơi</h3>
           <div id="player-statuses" class="player-statuses"></div>
         </section>
         <p id="status" class="status" role="status" aria-live="polite"></p>
@@ -144,7 +131,7 @@
       aria-labelledby="question-title"
     >
       <div class="dialog-mark">?</div>
-      <p class="eyebrow">Muốn chốt cược, hãy trả lời đúng</p>
+      <p class="eyebrow">Trả lời đúng để mở quyền chọn ô</p>
       <h2 id="question-title">Câu hỏi</h2>
       <p id="question-timer" class="question-timer" role="timer" aria-live="polite">
         <span aria-hidden="true">⏳</span> Còn <strong>20 giây</strong>
@@ -252,23 +239,6 @@
       <p class="eyebrow">Giá trị tri thức</p>
       <h2>Xếp hạng theo câu đúng</h2>
       <div id="knowledge-list" class="settlement"></div>
-    </dialog>
-    <dialog
-      id="preview-dialog"
-      class="game-dialog preview-dialog"
-      aria-labelledby="preview-title"
-    >
-      <p class="eyebrow">Bí mật của bạn</p>
-      <h2 id="preview-title">Kết quả đã định</h2>
-      <div id="preview-result-dice" class="result-dice"></div>
-      <p class="settlement">Hãy ghi nhớ rồi đóng bảng để đặt cược.</p>
-      <button
-        id="preview-close"
-        class="button button-primary button-wide"
-        type="button"
-      >
-        Đã nhớ, tiếp tục đặt cược
-      </button>
     </dialog>
     <dialog
       id="result-dialog"

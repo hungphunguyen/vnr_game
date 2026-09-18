@@ -170,6 +170,15 @@ run("uses the selected YouTube track as game music", () => {
   assert.match(source, /youtube\.com\/embed\/pa-cRsAxPXA\?autoplay=1&loop=1&playlist=pa-cRsAxPXA/);
 });
 
+run("shows difficulty choices and removes money wager controls", () => {
+  const html = fs.readFileSync("index.html", "utf8");
+  assert.match(html, /id="choose-easy"/);
+  assert.match(html, /id="choose-hard"/);
+  assert.match(html, /1 ô × 1 điểm/);
+  assert.match(html, /3 ô × 1,5 điểm/);
+  assert.doesNotMatch(html, /id="bet-amount"|id="preview-button"|id="preview-dialog"/);
+});
+
 run("keeps the game screen hidden during player setup", () => {
   const css = fs.readFileSync("animations.css", "utf8");
   assert.match(css, /#game-screen\[hidden\]\s*\{\s*display\s*:\s*none\s*!important/);
