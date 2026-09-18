@@ -186,6 +186,7 @@
 
   const CONFIG = {
     difficulties: DIFFICULTIES,
+    questionDurationMs: 10000,
     symbols: [
       { id: 'bau', label: 'Bầu' },
       { id: 'cua', label: 'Cua' },
@@ -277,13 +278,14 @@
     if (!currentPlayer(session) || !turn?.difficulty || turn.answered) throw new Error('Không có lượt trả lời hợp lệ.');
     const question = getCurrentQuestion(session);
     session.round.usedQuestionIds.push(question.id);
-    const correct = Number(answerIndex) === question.correctIndex;
+    const timedOut = Number(responseTimeMs) >= CONFIG.questionDurationMs;
+    const correct = !timedOut && Number(answerIndex) === question.correctIndex;
     turn.answered = true;
     turn.correct = correct;
     if (correct) {
       const player = currentPlayer(session);
       player.correctAnswers += 1;
-      player.correctAnswerTimeMs += Math.min(20000, Math.max(0, Number(responseTimeMs) || 0));
+      player.correctAnswerTimeMs += Math.min(CONFIG.questionDurationMs, Math.max(0, Number(responseTimeMs) || 0));
     }
     return { correct, question };
   }
@@ -370,7 +372,7 @@
     let questionDeadlineAt = 0;
     let questionLocked = false;
     let questionStarted = false;
-    const questionDurationMs = 10000;
+    const questionDurationMs = CONFIG.questionDurationMs;
     const formatPoints = (value) => `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(Number(value))} điểm`;
     const formatQuizTime = (timeMs) => `${(Number(timeMs) / 1000).toFixed(1).replace('.', ',')} giây`;
     const now = () => global.performance?.now?.() ?? Date.now();

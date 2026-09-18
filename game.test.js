@@ -67,6 +67,16 @@ run("a wrong answer creates no bet and allows ending the turn", () => {
   assert.equal(game.endTurn(session), true);
 });
 
+run("treats an answer at the 10-second deadline as timed out", () => {
+  const session = readySession();
+  const question = game.chooseDifficulty(session, "easy");
+  const result = game.submitAnswer(session, question.correctIndex, 10000);
+  assert.equal(result.correct, false);
+  assert.equal(session.players[0].correctAnswers, 0);
+  assert.equal(game.endTurn(session), true);
+  assert.deepEqual(session.round.bets, []);
+});
+
 run("easy requires one symbol and records only one bet", () => {
   const session = readySession();
   const question = game.chooseDifficulty(session, "easy");
@@ -238,7 +248,7 @@ run("waits for an explicit start before the 10-second quiz countdown", () => {
   assert.match(html, /id="question-start"/);
   assert.match(html, /Bắt đầu trả lời/);
   assert.match(html, /Còn <strong>10 giây<\/strong>/);
-  assert.match(source, /const questionDurationMs = 10000/);
+  assert.match(source, /questionDurationMs:\s*10000/);
   assert.match(source, /dom\.questionStart\.addEventListener\('click'/);
 });
 
