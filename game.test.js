@@ -50,8 +50,8 @@ run(
 );
 
 run("splits questions evenly and selects the requested difficulty", () => {
-  assert.equal(game.CONFIG.questions.filter((question) => question.difficulty === "easy").length, 50);
-  assert.equal(game.CONFIG.questions.filter((question) => question.difficulty === "hard").length, 50);
+  assert.equal(game.CONFIG.questions.filter((question) => question.difficulty === "easy").length, 7);
+  assert.equal(game.CONFIG.questions.filter((question) => question.difficulty === "hard").length, 7);
   const session = readySession();
   assert.equal(game.chooseDifficulty(session, "hard").difficulty, "hard");
 });
@@ -252,24 +252,34 @@ run("waits for an explicit start before the 10-second quiz countdown", () => {
   assert.match(source, /dom\.questionStart\.addEventListener\('click'/);
 });
 
-run("provides 100 questions limited to the corruption causes and impacts lesson", () => {
-  assert.equal(game.CONFIG.questions.length, 100);
-  assert.ok(game.CONFIG.questions.every((question) => question.id.startsWith("pctn-")));
+run("provides 14 balanced questions about democracy and socialist democracy", () => {
+  assert.equal(game.CONFIG.questions.length, 14);
+  assert.ok(game.CONFIG.questions.every((question) => question.id.startsWith("democracy-")));
   assert.ok(game.CONFIG.questions.every((question) => question.answers.length === 4));
-  assert.ok(game.CONFIG.questions.every((question) => Number.isInteger(question.correctIndex)));
+  assert.ok(game.CONFIG.questions.every((question) => [0, 1, 2, 3].includes(question.correctIndex)));
   assert.deepEqual(
-    [0, 1, 2, 3].map((index) => game.CONFIG.questions.filter((question) => question.correctIndex === index).length),
-    [25, 25, 25, 25],
+    [0, 1, 2, 3].map((slot) => game.CONFIG.questions.filter((question) => question.correctIndex === slot).length),
+    [4, 4, 3, 3],
   );
-  assert.notDeepEqual(
-    game.CONFIG.questions.slice(0, 8).map((question) => question.correctIndex),
-    [1, 2, 3, 0, 1, 2, 3, 0],
-  );
-  const correctIsUniqueShortest = game.CONFIG.questions.filter((question) => {
-    const correct = question.answers[question.correctIndex];
-    const answerLengths = question.answers.map((answer) => answer.length);
-    return correct.length === Math.min(...answerLengths) && answerLengths.filter((length) => length === correct.length).length === 1;
+  assert.ok(game.CONFIG.questions.every((question) => new Set(question.answers).size === 4));
+  assert.ok(game.CONFIG.questions.every((question) => {
+    const lengths = question.answers.map((answer) => answer.length);
+    return Math.max(...lengths) - Math.min(...lengths) <= 45;
+  }));
+  const uniqueLongestCorrect = game.CONFIG.questions.filter((question) => {
+    const lengths = question.answers.map((answer) => answer.length);
+    const correctLength = lengths[question.correctIndex];
+    return correctLength === Math.max(...lengths) && lengths.filter((length) => length === correctLength).length === 1;
   });
-  assert.ok(correctIsUniqueShortest.length < 30, 'Đáp án đúng không được thường xuyên là đáp án ngắn nhất một mình.');
-  assert.ok(game.CONFIG.questions.flatMap((question) => question.answers).every((answer) => !/thời tiết|khí hậu|thể thao|lễ hội|địa hình/i.test(answer)));
+  const uniqueShortestCorrect = game.CONFIG.questions.filter((question) => {
+    const lengths = question.answers.map((answer) => answer.length);
+    const correctLength = lengths[question.correctIndex];
+    return correctLength === Math.min(...lengths) && lengths.filter((length) => length === correctLength).length === 1;
+  });
+  assert.ok(uniqueLongestCorrect.length <= 3, 'Đáp án đúng không được thường xuyên là phương án dài nhất duy nhất.');
+  assert.ok(uniqueShortestCorrect.length <= 3, 'Đáp án đúng không được thường xuyên là phương án ngắn nhất duy nhất.');
+  assert.ok(game.CONFIG.questions.every((question) => question.answers.every((answer, index) => (
+    index === question.correctIndex || !/\bmọi\b|tuyệt đối|không cần|không thừa nhận|xóa bỏ ngay/i.test(answer)
+  ))), 'Phương án nhiễu không được dùng từ tuyệt đối để tự lộ là phương án sai.');
+  assert.ok(game.CONFIG.questions.every((question) => !/tham nhũng|phòng, chống tham nhũng/i.test(`${question.text} ${question.answers.join(" ")}`)));
 });
