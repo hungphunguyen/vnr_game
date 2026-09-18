@@ -295,7 +295,7 @@
       round: $('round-number'), turn: $('turn-label'), score: $('current-score'), queue: $('queue'),
       grid: $('symbol-grid'), boardInstruction: $('board-instruction'), selectionProgress: $('selection-progress'), easy: $('choose-easy'), hard: $('choose-hard'), betError: $('bet-error'), endTurn: $('end-turn'), reveal: $('reveal-button'), statuses: $('player-statuses'), status: $('status'), newRound: $('new-round'),
       questionDialog: $('question-dialog'), questionText: $('question-text'), questionTimer: $('question-timer'), questionStart: $('question-start'), answers: $('answer-options'), resultDialog: $('result-dialog'), resultDice: $('result-dice'), settlement: $('settlement'), resultNext: $('result-next-round'), stage: $('round-stage'), stageDice: $('stage-dice'), stageCopy: $('stage-copy'), stageBowl: $('stage-bowl'), stageContinue: $('stage-continue'),
-      endSession: $('end-session'), summaryDialog: $('summary-dialog'), summaryList: $('summary-list'), summaryContinue: $('summary-continue'), drawDialog: $('draw-dialog'), drawScene: $('draw-scene'), drawUrn: $('draw-urn-button'), drawReveal: $('draw-reveal'), drawResult: $('draw-result'), drawConfirm: $('draw-confirm'), legalDialog: $('legal-dialog'), knowledgeShow: $('knowledge-show'), knowledgeDialog: $('knowledge-dialog'), knowledgeList: $('knowledge-list'),
+      endSession: $('end-session'), summaryDialog: $('summary-dialog'), summaryList: $('summary-list'), summaryContinue: $('summary-continue'), drawDialog: $('draw-dialog'), drawScene: $('draw-scene'), drawUrn: $('draw-urn-button'), drawReveal: $('draw-reveal'), drawStickLabel: $('draw-stick-label'), drawOutcomeTitle: $('draw-outcome-title'), drawResult: $('draw-result'), drawConfirm: $('draw-confirm'), legalDialog: $('legal-dialog'), knowledgeShow: $('knowledge-show'), knowledgeDialog: $('knowledge-dialog'), knowledgeList: $('knowledge-list'),
     };
     let names = ['Người chơi 1', 'Người chơi 2'];
     let session = null;
@@ -311,7 +311,21 @@
     const now = () => global.performance?.now?.() ?? Date.now();
     const symbolById = (id) => CONFIG.symbols.find((symbol) => symbol.id === id);
     const setStatus = (message) => { dom.status.textContent = message; };
-    const showSummary = () => { dom.summaryList.innerHTML = pointRanking(session).map((p, i) => `<p><strong>Hạng ${i + 1}. ${p.name}</strong> — ${formatPoints(p.score)} ${p.drawUsed ? '✓ Đã rút' : `<button class="draw-player" data-id="${p.id}" type="button"><img src="assets/generated/fortune-stick-icon.png" alt=""> Bốc thăm</button>`}</p>`).join(''); dom.summaryList.querySelectorAll('.draw-player').forEach((button) => button.addEventListener('click', () => { dom.drawUrn.dataset.id = button.dataset.id; dom.drawScene.className = 'draw-scene'; dom.drawReveal.hidden = true; dom.drawUrn.disabled = false; dom.drawResult.textContent = 'Chạm vào ống thăm để bắt đầu.'; dom.drawConfirm.hidden = true; dom.drawDialog.showModal(); })); };
+    function showSummary() {
+      const eligibleDrawIds = new Set(drawEligiblePlayerIds(session));
+      dom.summaryList.innerHTML = pointRanking(session).map((p, i) => `<p><strong>Hạng ${i + 1}. ${p.name}</strong> — ${formatPoints(p.score)} ${p.drawUsed ? '✓ Đã rút' : eligibleDrawIds.has(p.id) ? `<button class="draw-player" data-id="${p.id}" type="button"><img src="assets/generated/fortune-stick-icon.png" alt=""> Bốc thăm</button>` : ''}</p>`).join('');
+      dom.summaryList.querySelectorAll('.draw-player').forEach((button) => button.addEventListener('click', () => {
+        dom.drawUrn.dataset.id = button.dataset.id;
+        dom.drawScene.className = 'draw-scene';
+        dom.drawReveal.hidden = true;
+        dom.drawUrn.disabled = false;
+        dom.drawStickLabel.textContent = '';
+        dom.drawOutcomeTitle.hidden = true;
+        dom.drawResult.textContent = 'Chạm vào ống thăm để bắt đầu.';
+        dom.drawConfirm.hidden = true;
+        dom.drawDialog.showModal();
+      }));
+    }
 
     function clearQuestionTimer() {
       if (questionTimerId !== null) global.clearInterval(questionTimerId);
@@ -485,11 +499,11 @@
     dom.newRound.addEventListener('click', beginRound);
     dom.resultNext.addEventListener('click', () => { dom.resultDialog.close(); beginRound(); });
     dom.endSession.addEventListener('click', () => { showSummary(); dom.summaryDialog.showModal(); });
-    const revealDraw = () => { dom.drawScene.classList.remove('is-shaking'); dom.drawScene.classList.add('is-fading'); dom.drawReveal.hidden = false; global.setTimeout(() => { dom.drawScene.classList.add('is-revealed'); const lost = drawPenalty(session, dom.drawUrn.dataset.id); if (lost === null) return; dom.drawResult.textContent = `Cây thăm cảnh báo: bạn mất toàn bộ ${formatPoints(lost)}.`; dom.drawConfirm.hidden = false; }, 1100); };
+    const revealDraw = () => { dom.drawScene.classList.remove('is-shaking'); dom.drawScene.classList.add('is-fading'); dom.drawReveal.hidden = false; global.setTimeout(() => { dom.drawScene.classList.add('is-revealed'); const result = drawPenalty(session, dom.drawUrn.dataset.id); if (!result) return; const isReduction = result.outcome === 'reduce-70'; dom.drawStickLabel.textContent = isReduction ? 'GIẢM 70%' : 'MẤT HẾT'; dom.drawOutcomeTitle.hidden = false; dom.drawOutcomeTitle.textContent = isReduction ? 'Thăm giảm 70% điểm' : 'Thăm mất toàn bộ điểm'; dom.drawResult.textContent = isReduction ? `Bạn bị giảm ${formatPoints(result.deducted)}, còn ${formatPoints(result.score)}.` : `Bạn mất toàn bộ ${formatPoints(result.previousScore)}.`; dom.drawConfirm.hidden = false; }, 1100); };
     dom.drawUrn.addEventListener('click', () => { if (dom.drawUrn.disabled) return; dom.drawUrn.disabled = true; dom.drawScene.classList.add('is-shaking'); global.setTimeout(revealDraw, 1100); });
     dom.drawConfirm.addEventListener('click', () => { dom.drawDialog.close(); showSummary(); });
     dom.summaryContinue.addEventListener('click', () => { dom.summaryDialog.close(); dom.legalDialog.showModal(); });
-    dom.knowledgeShow.addEventListener('click', () => { dom.legalDialog.close(); dom.knowledgeList.innerHTML = knowledgeRanking(session).map((p, i) => `<p><strong>Hạng ${i + 1}. ${p.name}</strong> — ${p.correctAnswers} câu đúng · ${formatQuizTime(p.correctAnswerTimeMs)}</p>`).join(''); dom.knowledgeDialog.showModal(); });
+    dom.knowledgeShow.addEventListener('click', () => { dom.legalDialog.close(); dom.knowledgeList.innerHTML = knowledgeRanking(session).map((p, i) => `<p><strong>Hạng ${i + 1}. ${p.name}</strong> — ${p.hardCorrectAnswers} câu khó đúng · ${p.correctAnswers} câu đúng · ${formatQuizTime(p.correctAnswerTimeMs)}</p>`).join(''); dom.knowledgeDialog.showModal(); });
     dom.questionDialog.addEventListener('cancel', (event) => event.preventDefault());
     renderSetup();
   }

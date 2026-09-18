@@ -157,6 +157,7 @@
     <dialog id="draw-dialog" class="game-dialog">
       <p class="eyebrow">Cơ hội bốc thăm</p>
       <h2>Rút một cây thăm</h2>
+      <p class="draw-rule">Ngẫu nhiên: mất toàn bộ điểm hoặc giảm 70% điểm.</p>
       <div class="draw-box">
         <div class="draw-bait draw-bait-x2">
           <img
@@ -195,12 +196,14 @@
             <div class="draw-result-stick">
               <img
                 src="assets/generated/fortune-result-stick-engraved.png"
-                alt="Thẻ thăm gỗ khắc dọc Mất toàn bộ điểm"
+                alt=""
               />
+              <span id="draw-stick-label" class="draw-stick-label"></span>
             </div>
           </div>
         </div>
       </div>
+      <p id="draw-outcome-title" class="draw-outcome-title" hidden></p>
       <p id="draw-result" class="settlement"></p>
       <button
         id="draw-confirm"

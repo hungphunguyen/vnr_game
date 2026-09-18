@@ -245,6 +245,20 @@ run("uses one clickable urn scene and no draggable fortune sticks", () => {
   assert.doesNotMatch(source, /querySelectorAll\('\.draw-stick'\)/);
 });
 
+run("summary derives draw controls from eligible ranks", () => {
+  const source = fs.readFileSync("game.js", "utf8");
+  assert.match(source, /drawEligiblePlayerIds\(session\)/);
+  assert.match(source, /eligibleDrawIds\.has\(p\.id\)/);
+});
+
+run("draw dialog and knowledge dialog describe both new rules", () => {
+  const html = fs.readFileSync("index.html", "utf8");
+  const source = fs.readFileSync("game.js", "utf8");
+  assert.match(html, /giảm 70% điểm/i);
+  assert.match(source, /result\.outcome === 'reduce-70'/);
+  assert.match(source, /p\.hardCorrectAnswers/);
+});
+
 run("styles the draw as a large single-scene promotion", () => {
   const css = fs.readFileSync("styles.css", "utf8");
   const html = fs.readFileSync("index.html", "utf8");
